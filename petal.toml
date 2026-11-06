@@ -1,0 +1,11 @@
+schema = "bloom.petal.package.v1"
+name = "ballot"
+
+[consent]
+summary = "Read Snapshot governance proposals and cast owner-approved votes"
+
+# Capability ceiling for this milestone: only static routes, no host imports.
+# Widen deliberately (bloom:http, bloom:store, bloom:sign, [[net.allow]],
+# [sign], [store]) when the routes that need them land.
+[caps]
+allowed = []

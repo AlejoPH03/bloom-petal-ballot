@@ -1,0 +1,9 @@
+[package]
+name = "ballot-route"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+petal = { package = "bloom-petal-sdk", git = "https://github.com/bloom-directory/petal", rev = "ba76944a20248493858bfbc2c5f86e3d859f719a" }
+serde_json = "1"
