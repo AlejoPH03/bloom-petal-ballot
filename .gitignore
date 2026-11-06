@@ -1,0 +1,6 @@
+/petal/ballot/**/*.wasm
+/artifacts/
+/target/
+**/target/
+*.petal.tar
+*.petal.tar.gz
