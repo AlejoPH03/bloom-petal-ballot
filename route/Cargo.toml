@@ -5,5 +5,15 @@ edition = "2024"
 publish = false
 
 [dependencies]
+# Exactly the versions bloom-petal-hyperliquid pins (its route/Cargo.toml and
+# Cargo.lock): keccak256, EIP-55 checksums and secp256k1 recovery.
+alloy-primitives = { version = "=1.6.1", default-features = false, features = ["std", "k256"] }
 petal = { package = "bloom-petal-sdk", git = "https://github.com/bloom-directory/petal", rev = "ba76944a20248493858bfbc2c5f86e3d859f719a" }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
+
+[dev-dependencies]
+# Hyperliquid's dev-only signer (k256 0.13.4 in its Cargo.lock): produces real
+# recoverable signatures in tests, so no signature bytes are stored anywhere.
+k256 = { version = "=0.13.4", features = ["ecdsa"] }
