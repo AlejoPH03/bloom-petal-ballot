@@ -22,25 +22,45 @@ gasless EIP-712 votes via `bloom:sign` with intent `snapshot.vote` (no outbox).
    (`~/work/bloom-petal-{hyperliquid,gasless,polymarket}`), and cite them.
    Reference Petals may pin a different SDK rev; this repo's pin wins.
 5. **Never write to Bloom `/wallets`, `/petals/*/` (reads only), outbox or
-   policy paths.** The only Bloom mutations allowed are
-   `bloom petals build .` and `bloom petals install .` for this package.
-   Never use `--force`.
-6. **No secrets or signature bytes in readable files.** Signatures, keys and
-   tokens live only in the store's secret namespace; reads expose status,
-   intent, outcome and non-secret identifiers.
+   policy paths.** Never write any `/wallets/*/policy.json`: Machine proposes
+   the package-hash policy update itself on the first signing attempt, and
+   the owner approves it. Never use `--force`.
+   - Installer-provenance enrollment
+     (`bloom init triad-enroll-developer-petal-provenance`) is allowed **only
+     inside `scripts/dev-cycle.sh`**, which the human runs. It pauses for the
+     human to restart the triad.
+   - **Claude Code never restarts the triad, never runs `scripts/dev-cycle.sh`,
+     and never completes or cancels ceremonies** (policy-update or signing).
+   - The only other Bloom mutations allowed are `bloom petals build .` and
+     `bloom petals install .` for this package, and only when asked.
+6. **No secrets or signature bytes in readable files, logs, test output or
+   reports.** Signatures, keys and tokens live only in the store's secret
+   namespace, or nowhere. Reads expose status, intent, outcome, non-secret
+   identifiers and at most a sha256 fingerprint of a signature. Never pass
+   `approval_hint`.
 7. **No real funds, no mainnet votes** without the owner's explicit
    authorization for that action.
 8. **Run Verify before claiming done**, and report failures as they are.
 
 ## Verify
 
+Host-side (Claude Code runs these):
+
 ```sh
 cargo test --manifest-path route/Cargo.toml
 bash scripts/check-route-architecture.sh
 petal build --root . && petal check --root .
-find petal/ballot -name '*.wasm' | while read -r f; do echo "== $f"; wasm-tools component wit "$f" | grep -E '^\s*import' || true; done
+find petal/ballot -name '*.wasm' | sort | while read -r f; do echo "== $f"; wasm-tools component wit "$f" | grep -E 'import bloom:' || true; done
+bash -n scripts/dev-cycle.sh
+```
+
+Bloom-side, signing builds: the **human** runs `bash scripts/dev-cycle.sh`
+(enroll → restart triad → build → install → hash check). For a build that
+signs nothing, `bloom petals build .` and `bloom petals install .` are
+allowed when asked. Read-only checks:
+
+```sh
 source /tmp/bloom-triad-logs/triad.env
-bloom petals build . && bloom petals install .
 bloom vfs ls /petals/ballot
 bloom vfs cat /petals/ballot/status.json
 bloom vfs ls /petals/ballot/testnet
