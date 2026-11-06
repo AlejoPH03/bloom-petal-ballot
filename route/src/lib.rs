@@ -6,6 +6,9 @@
 
 use std::fmt;
 
+pub mod hello;
+pub mod snapshot;
+
 /// Snapshot hub base URL for the testnet.
 // TODO(step0): verify host
 pub const TESTNET_HUB: &str = "https://testnet.hub.snapshot.org";
