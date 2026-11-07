@@ -68,11 +68,22 @@ impl Network {
         }
     }
 
-    /// Sequencer endpoint that accepts signed vote envelopes.
+    /// Sequencer base URL (as reported in `status.json`).
     pub fn sequencer_url(self) -> &'static str {
         match self {
             Network::Testnet => "https://testnet.seq.snapshot.org",
             Network::Mainnet => "https://seq.snapshot.org",
+        }
+    }
+
+    /// Where signed vote envelopes are POSTed: path `/` exactly, the only
+    /// path `[[net.allow]]` allows (a rule without `*` matches only itself,
+    /// SKILL.md:304-308; the sequencer route is `router.post('/')`,
+    /// snapshot-sequencer `src/api.ts:19-20`).
+    pub fn sequencer_submit_url(self) -> &'static str {
+        match self {
+            Network::Testnet => "https://testnet.seq.snapshot.org/",
+            Network::Mainnet => "https://seq.snapshot.org/",
         }
     }
 }
@@ -187,7 +198,9 @@ mod tests {
         );
         assert_eq!(Network::Mainnet.sequencer_url(), "https://seq.snapshot.org");
         assert_eq!(Network::Testnet.sequencer_url(), "https://testnet.seq.snapshot.org");
+        assert_eq!(Network::Testnet.sequencer_submit_url(), "https://testnet.seq.snapshot.org/");
         for network in Network::ALL {
+            assert_eq!(network.sequencer_submit_url(), format!("{}/", network.sequencer_url()));
             assert!(network.hub_graphql_url().starts_with(network.hub_url()));
             assert!(network.sequencer_url().starts_with("https://"));
         }

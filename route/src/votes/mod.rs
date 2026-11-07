@@ -8,3 +8,4 @@ pub mod sequencer;
 pub mod hubq;
 pub mod record;
 pub mod flow;
+pub mod host;
