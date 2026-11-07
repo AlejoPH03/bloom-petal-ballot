@@ -1,0 +1,1 @@
+{ proposals(first: 20, where: {space: "cryptolootlegends.eth", state: "active"}, orderBy: "created", orderDirection: desc) { id title type start end state } }

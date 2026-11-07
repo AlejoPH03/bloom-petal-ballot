@@ -1,0 +1,1 @@
+{ votes(first: 10, where: {proposal: "0xd03f82218edb4ead3cc086bf3ac8936cb275b62301039a6fd30f83631ac453fe", voter: "0x357Dad451a09306855107f7843513960f212726C"}) { id voter choice vp created reason app } }

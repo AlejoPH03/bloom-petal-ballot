@@ -1,0 +1,1 @@
+{ proposal(id: "0xd03f82218edb4ead3cc086bf3ac8936cb275b62301039a6fd30f83631ac453fe") { id space { id } author title body choices type start end snapshot state scores scores_total } }

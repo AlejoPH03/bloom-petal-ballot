@@ -1,0 +1,56 @@
+{
+  "address": "0x042abe4EE65cBC71Bd11297DCea2d69e1650a596",
+  "sig": "0x926a229e712f33c2fbdd2e60cb676e2332d0e7768b2ff88070a0c69c37d2e51542693fedf2e7eec85e8f7e57d32228da34ffdae7d6c3ac1f8f5e8db638b46cab1c",
+  "data": {
+    "domain": {
+      "name": "snapshot",
+      "version": "0.1.4"
+    },
+    "types": {
+      "Vote": [
+        {
+          "name": "from",
+          "type": "string"
+        },
+        {
+          "name": "space",
+          "type": "string"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint64"
+        },
+        {
+          "name": "proposal",
+          "type": "string"
+        },
+        {
+          "name": "choice",
+          "type": "uint32"
+        },
+        {
+          "name": "reason",
+          "type": "string"
+        },
+        {
+          "name": "app",
+          "type": "string"
+        },
+        {
+          "name": "metadata",
+          "type": "string"
+        }
+      ]
+    },
+    "message": {
+      "from": "0x042abe4EE65cBC71Bd11297DCea2d69e1650a596",
+      "space": "bloom-ballot-test.eth",
+      "timestamp": 1793923200,
+      "proposal": "0x3b1261975f64a6e11b3f365280580fbe0e7e7589799f122f4c0bcd61021bdcc6",
+      "choice": 1,
+      "reason": "",
+      "app": "bloom-ballot",
+      "metadata": "{}"
+    }
+  }
+}
