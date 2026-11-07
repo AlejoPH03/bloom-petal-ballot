@@ -10,6 +10,7 @@ pub mod hello;
 pub mod hub;
 pub mod proposals;
 pub mod snapshot;
+pub mod votes;
 
 /// Snapshot hub base URL for the testnet (confirmed in
 /// docs/snapshot-testnet/FINDINGS.md §1).
