@@ -1,6 +1,6 @@
 //! Snapshot `Vote` EIP-712 typed data, exactly as current snapshot.js builds it.
 //!
-//! Source of truth: `~/work/step0/FINDINGS.md` §2 and §6.
+//! Source of truth: `docs/snapshot-testnet/FINDINGS.md` §2 and §6.
 //! - Domain `{name:"snapshot", version:"0.1.4"}`, with no chainId and no
 //!   verifyingContract (snapshot.js `src/sign/index.ts:40-51`).
 //! - `Vote(string from,string space,uint64 timestamp,string proposal,uint32 choice,string reason,string app,string metadata)`
@@ -174,32 +174,62 @@ pub fn hex32(value: &B256) -> String {
 mod tests {
     use super::*;
 
-    // ~/work/step0/FINDINGS.md §6 and golden/{message,digest_parts}.txt.
+    // Golden fixtures committed in docs/snapshot-testnet/golden/ (FINDINGS.md §6).
+    // Read at compile time, so a missing fixture fails the build instead of
+    // skipping a test.
+    macro_rules! golden_file {
+        ($name:literal) => {
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snapshot-testnet/golden/", $name))
+        };
+    }
+    const GOLDEN_TYPED_DATA: &str = golden_file!("typed_data.json");
+    const GOLDEN_MESSAGE: &str = golden_file!("message.json");
+    const GOLDEN_DIGEST_PARTS: &str = golden_file!("digest_parts.txt");
+    const GOLDEN_DIGEST_BLOOM: &str = golden_file!("digest_bloom.hex");
+    const GOLDEN_DIGEST_MANUAL: &str = golden_file!("digest_manual.hex");
+    /// Made by the step 0 throwaway test key; never submitted (see the README).
+    const GOLDEN_SIGNATURE: &str = golden_file!("signature.hex");
     const GOLDEN_FROM: &str = "0x042abe4EE65cBC71Bd11297DCea2d69e1650a596";
     const GOLDEN_PROPOSAL: &str =
         "0x3b1261975f64a6e11b3f365280580fbe0e7e7589799f122f4c0bcd61021bdcc6";
-    const GOLDEN_TYPE_HASH: &str =
-        "0x7bf372d792402c0796ec3567238391d04616792abb3fe96c99adc02d8b8cdffa";
-    const GOLDEN_DOMAIN_SEPARATOR: &str =
-        "0x484fce18f892e8535a4b6700e197a8026f4213f809d23ae117da03b497e18670";
-    const GOLDEN_STRUCT_HASH: &str =
-        "0x2b0bbfd2824580ad8696e79f475d4cd35594bcafb3fafac700bc50bd97f65f08";
-    const GOLDEN_DIGEST: &str =
-        "0x9431fb703c91b4a1c216343688a73580e102f80585c4511376f7b58281ff0251";
-    /// `golden/typed_data.json`, verbatim.
-    const GOLDEN_TYPED_DATA: &str = r#"{"domain":{"name":"snapshot","version":"0.1.4"},"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"}],"Vote":[{"name":"from","type":"string"},{"name":"space","type":"string"},{"name":"timestamp","type":"uint64"},{"name":"proposal","type":"string"},{"name":"choice","type":"uint32"},{"name":"reason","type":"string"},{"name":"app","type":"string"},{"name":"metadata","type":"string"}]},"message":{"from":"0x042abe4EE65cBC71Bd11297DCea2d69e1650a596","space":"bloom-ballot-test.eth","timestamp":1793923200,"proposal":"0x3b1261975f64a6e11b3f365280580fbe0e7e7589799f122f4c0bcd61021bdcc6","choice":1,"reason":"","app":"bloom-ballot","metadata":"{}"},"primaryType":"Vote"}"#;
+
+    fn golden_part(name: &str) -> &'static str {
+        GOLDEN_DIGEST_PARTS
+            .lines()
+            .find_map(|line| {
+                let mut fields = line.split_whitespace();
+                (fields.next() == Some(name)).then(|| fields.next()).flatten()
+            })
+            .unwrap_or_else(|| panic!("digest_parts.txt has no {name}"))
+    }
+
+    fn golden_digest() -> &'static str {
+        let bloom = GOLDEN_DIGEST_BLOOM.trim();
+        assert_eq!(bloom, GOLDEN_DIGEST_MANUAL.trim(), "Bloom and manual digests agree");
+        bloom
+    }
 
     fn golden_vote() -> Vote {
+        let m: Value = serde_json::from_str(GOLDEN_MESSAGE).expect("message.json");
+        let text = |key: &str| m[key].as_str().unwrap_or_else(|| panic!("{key}")).to_owned();
         Vote {
-            from: GOLDEN_FROM.into(),
-            space: "bloom-ballot-test.eth".into(),
-            timestamp: 1_793_923_200,
-            proposal: GOLDEN_PROPOSAL.into(),
-            choice: 1,
-            reason: String::new(),
-            app: "bloom-ballot".into(),
-            metadata: "{}".into(),
+            from: text("from"),
+            space: text("space"),
+            timestamp: m["timestamp"].as_u64().expect("timestamp"),
+            proposal: text("proposal"),
+            choice: u32::try_from(m["choice"].as_u64().expect("choice")).unwrap(),
+            reason: text("reason"),
+            app: text("app"),
+            metadata: text("metadata"),
         }
+    }
+
+    #[test]
+    fn golden_message_is_the_documented_vote() {
+        let vote = golden_vote();
+        assert_eq!(vote.from, GOLDEN_FROM);
+        assert_eq!(vote.proposal, GOLDEN_PROPOSAL);
+        assert_eq!(vote.timestamp, 1_793_923_200);
     }
 
     // (a) The golden vector reproduces every intermediate, the preimage and
@@ -208,13 +238,13 @@ mod tests {
     #[test]
     fn golden_vector_reproduces_digest_and_preimage() {
         let vote = golden_vote();
-        assert_eq!(hex32(&vote_type_hash()), GOLDEN_TYPE_HASH);
-        assert_eq!(hex32(&domain_separator()), GOLDEN_DOMAIN_SEPARATOR);
-        assert_eq!(hex32(&vote.struct_hash()), GOLDEN_STRUCT_HASH);
+        assert_eq!(hex32(&vote_type_hash()), golden_part("typeHash"));
+        assert_eq!(hex32(&domain_separator()), golden_part("domainSeparator"));
+        assert_eq!(hex32(&vote.struct_hash()), golden_part("structHash"));
         let expected_preimage = format!(
             "0x1901{}{}",
-            &GOLDEN_DOMAIN_SEPARATOR[2..],
-            &GOLDEN_STRUCT_HASH[2..]
+            &golden_part("domainSeparator")[2..],
+            &golden_part("structHash")[2..]
         );
         let preimage = vote.preimage();
         assert_eq!(preimage.len(), PREIMAGE_LEN);
@@ -222,8 +252,8 @@ mod tests {
             format!("0x{}", alloy_primitives::hex::encode(preimage)),
             expected_preimage
         );
-        assert_eq!(hex32(&vote.digest()), GOLDEN_DIGEST);
-        assert_eq!(hex32(&keccak256(preimage)), GOLDEN_DIGEST);
+        assert_eq!(hex32(&vote.digest()), golden_digest());
+        assert_eq!(hex32(&keccak256(preimage)), golden_digest());
     }
 
     #[test]
@@ -265,14 +295,14 @@ mod tests {
     fn lowercase_from_changes_the_digest_and_checksum_restores_it() {
         let mut lower = golden_vote();
         lower.from = GOLDEN_FROM.to_ascii_lowercase();
-        assert_ne!(hex32(&lower.digest()), GOLDEN_DIGEST);
+        assert_ne!(hex32(&lower.digest()), golden_digest());
         assert_eq!(checksum_address(&lower.from).unwrap(), GOLDEN_FROM);
         assert_eq!(
             checksum_address(&GOLDEN_FROM.to_ascii_uppercase().replacen("0X", "0x", 1)).unwrap(),
             GOLDEN_FROM
         );
         lower.from = checksum_address(&lower.from).unwrap();
-        assert_eq!(hex32(&lower.digest()), GOLDEN_DIGEST);
+        assert_eq!(hex32(&lower.digest()), golden_digest());
     }
 
     #[test]
@@ -326,22 +356,12 @@ mod tests {
         assert!(recover_signer(&digest, &raw[..64]).is_err());
     }
 
-    // (d) The golden vector's own throwaway signature recovers the throwaway
-    // address. The signature is read at test time from step0's golden files so
-    // that no signature bytes live in this repository; it is never printed.
+    // (d) The golden vector's own throwaway signature (committed fixture)
+    // recovers the throwaway address.
     #[test]
     fn recover_signer_recovers_the_golden_throwaway_address() {
-        let path = std::env::var("BALLOT_GOLDEN_SIGNATURE").unwrap_or_else(|_| {
-            format!(
-                "{}/work/step0/golden/signature.hex",
-                std::env::var("HOME").unwrap_or_default()
-            )
-        });
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            eprintln!("SKIPPED golden throwaway recovery: {path} not found (set BALLOT_GOLDEN_SIGNATURE)");
-            return;
-        };
-        let raw = alloy_primitives::hex::decode(text.trim()).expect("golden signature is hex");
+        let raw = alloy_primitives::hex::decode(GOLDEN_SIGNATURE.trim()).expect("golden signature is hex");
+        assert_eq!(raw.len(), 65);
         let digest = golden_vote().digest();
         let recovered = recover_signer(&digest, &raw);
         let expected: Address = GOLDEN_FROM.parse().unwrap();

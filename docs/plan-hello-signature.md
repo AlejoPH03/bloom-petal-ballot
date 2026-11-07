@@ -60,7 +60,7 @@ never reach a readable file, log or report.
 | Bloom Broker | `76bb7e0` (= Bloom's pin, `bloom/Cargo.toml:137`) | `~/work/bloom-broker` |
 | bloom-rpc-wire | `48b83c5` (Broker's pin, `bloom-broker/Cargo.toml:18`) | `~/.cargo/git/checkouts/bloom-service-runtime-db2120f8e16caa43/48b83c5` |
 | Polymarket (reference) | `1141037` | `~/work/bloom-petal-polymarket` |
-| Step 0 | FINDINGS.md 2026-11-06 17:40 + `golden/` 17:48 | `~/work/step0` |
+| Step 0 | FINDINGS.md 2026-11-06 17:40 + `golden/` 17:48 | `docs/snapshot-testnet/` (copied in) |
 
 ## ⚠ Headline findings that change the brief
 
@@ -212,7 +212,7 @@ Confirmed. Sign the 66-byte `0x19 0x01 ‖ domainSeparator ‖ structHash` with
 - Type: `Vote(string from,string space,uint64 timestamp,string proposal,uint32 choice,string reason,string app,string metadata)`
   (FINDINGS.md:31-34).
 - **Golden vector** (not yet written up in FINDINGS.md §9, which still says
-  "pending"; files in `~/work/step0/golden/`):
+  "pending"; files now in `docs/snapshot-testnet/golden/`):
   - `message.json`: from `0x042abe4E…a596`, space `bloom-ballot-test.eth`,
     timestamp `1793923200`, proposal `0x3b1261…dcc6`, choice 1, reason `""`,
     app `bloom-ballot`, metadata `{}`.
@@ -509,10 +509,10 @@ stage).
 - `snapshot::recover_signer(digest, sig) -> Result<Address, _>`, tested two
   ways. (1) Hermetically, with a signature made at test time by Hyperliquid's
   deterministic `k256` test key. (2) Against the golden throwaway signature,
-  **read at test time** from `~/work/step0/golden/signature.hex` (override
-  with `BALLOT_GOLDEN_SIGNATURE`), so no signature bytes are committed. The
-  test skips with a message if the file is absent. The throwaway private key
-  is never used.
+  originally read at test time from outside the repository. *Superseded:*
+  the fixture is now committed as `docs/snapshot-testnet/golden/signature.hex`
+  (a throwaway test key over a synthetic vote, never submitted) and read with
+  `include_str!`, so no test skips. The throwaway private key is never used.
 
 ### `scripts/dev-cycle.sh` (revised)
 

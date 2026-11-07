@@ -9,8 +9,8 @@ use std::fmt;
 pub mod hello;
 pub mod snapshot;
 
-/// Snapshot hub base URL for the testnet.
-// TODO(step0): verify host
+/// Snapshot hub base URL for the testnet (confirmed in
+/// docs/snapshot-testnet/FINDINGS.md §1).
 pub const TESTNET_HUB: &str = "https://testnet.hub.snapshot.org";
 /// Snapshot hub base URL for mainnet.
 pub const MAINNET_HUB: &str = "https://hub.snapshot.org";
@@ -60,7 +60,6 @@ impl Network {
     /// Hub GraphQL endpoint used for proposal reads.
     pub fn hub_graphql_url(self) -> &'static str {
         match self {
-            // TODO(step0): verify host
             Network::Testnet => "https://testnet.hub.snapshot.org/graphql",
             Network::Mainnet => "https://hub.snapshot.org/graphql",
         }
