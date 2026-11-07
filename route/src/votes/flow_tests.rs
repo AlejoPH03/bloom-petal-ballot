@@ -269,7 +269,7 @@ fn marker(host: &mut FakeHost) -> Marker {
     get_json(host, &scope().marker_key(), "marker").unwrap().expect("marker written")
 }
 
-fn write(host: &mut FakeHost, bytes: &[u8]) -> WriteOutcome {
+fn send(host: &mut FakeHost, bytes: &[u8]) -> WriteOutcome {
     host.calls.clear();
     run_write(host, &scope(), bytes)
 }
@@ -318,7 +318,7 @@ fn policy_ceremony_then_signing_ceremony_then_submitted_then_counted() {
         .signs(&[SignScript::Pending(POLICY_ID, NOW_MS + 300_000), SignScript::Pending(EXACT_ID, NOW_MS + 300_000), SignScript::Pending(EXACT_ID, NOW_MS + 300_000), SignScript::Sign])
         .posts(&[PostScript::Accept]);
 
-    let first = write(&mut host, &demo("demo-1"));
+    let first = send(&mut host, &demo("demo-1"));
     assert_eq!((first.code, first.outcome), (-3, "approval_pending"));
     assert!(first.message.starts_with(&format!("approval pending ({POLICY_ID})")), "{}", first.message);
     assert_eq!(host.external_calls(), ["hub.proposal", "vfs.address", "hub.vp", "sign"]);
@@ -337,18 +337,18 @@ fn policy_ceremony_then_signing_ceremony_then_submitted_then_counted() {
 
     // The owner approved the policy; the identical write reaches the exact ceremony.
     host.now = Some(NOW_MS + 60_000);
-    let second = write(&mut host, &demo("demo-1"));
+    let second = send(&mut host, &demo("demo-1"));
     assert!(second.message.starts_with(&format!("approval pending ({EXACT_ID})")));
     assert_eq!(host.external_calls(), ["sign"], "a bound vote re-checks nothing on the hub");
     assert_eq!(binding(&mut host, "demo-1").unwrap(), bound, "the binding never changes");
 
     // Early retry: the same pending id comes back, nothing new.
-    let early = write(&mut host, &demo("demo-1"));
+    let early = send(&mut host, &demo("demo-1"));
     assert_eq!((early.code, early.outcome), (-3, "approval_pending"));
     assert_eq!(record(&mut host, "demo-1").unwrap().pending.unwrap().action_id, EXACT_ID);
 
     // Approved: the identical write signs, keeps the signature secret, posts once.
-    let third = write(&mut host, &demo("demo-1"));
+    let third = send(&mut host, &demo("demo-1"));
     assert_eq!((third.code, third.outcome, third.message.as_str()), (0, "submitted", ""));
     assert_eq!(host.external_calls(), ["sign", "sequencer.post"]);
     let r = record(&mut host, "demo-1").unwrap();
@@ -363,14 +363,14 @@ fn policy_ceremony_then_signing_ceremony_then_submitted_then_counted() {
     assert_eq!(host.posted.len(), 1);
 
     // The identical write records counted from the hub; no signing, no POST.
-    let fourth = write(&mut host, &demo("demo-1"));
+    let fourth = send(&mut host, &demo("demo-1"));
     assert_eq!((fourth.code, fourth.outcome), (0, "counted"));
     assert_eq!(host.external_calls(), ["hub.votes"]);
     let r = record(&mut host, "demo-1").unwrap();
     assert_eq!(r.status, Status::Counted);
     assert_eq!(r.counted.as_ref().unwrap().hub_vote_id, bound.digest);
 
-    let fifth = write(&mut host, &demo("demo-1"));
+    let fifth = send(&mut host, &demo("demo-1"));
     assert_eq!((fifth.code, fifth.outcome), (0, "counted"));
     assert!(host.external_calls().is_empty(), "counted makes no external call");
     assert_secret_wall(&mut host, &["demo-1"]);
@@ -380,9 +380,9 @@ fn policy_ceremony_then_signing_ceremony_then_submitted_then_counted() {
 fn identical_means_normalised_fields() {
     let mut host = FakeHost::new().signs(&[SignScript::Pending(EXACT_ID, NOW_MS + 300_000)]);
     host.default_sign = Some(SignScript::Pending(EXACT_ID, NOW_MS + 300_000));
-    write(&mut host, &body("v", P, 2, None));
+    send(&mut host, &body("v", P, 2, None));
     let reformatted = format!("{{ \"reason\": \"\", \"choice\": 2,\n \"proposal\": \"{P}\", \"space\": \"{SPACE}\", \"vote_id\": \"v\" }}\n");
-    let again = write(&mut host, reformatted.as_bytes());
+    let again = send(&mut host, reformatted.as_bytes());
     assert_eq!(again.outcome, "approval_pending", "same vote: resumes");
     assert_ne!(marker(&mut host).body_sha256, sha256_hex(&body("v", P, 2, None)), "raw hash differs");
     assert_eq!(marker(&mut host).canonical_body_sha256.unwrap(), binding(&mut host, "v").unwrap().canonical_body_sha256);
@@ -393,7 +393,7 @@ fn identical_means_normalised_fields() {
 // ---------------------------------------------------------------------------
 
 fn refused(host: &mut FakeHost, bytes: &[u8], code: &str) -> Record {
-    let out = write(host, bytes);
+    let out = send(host, bytes);
     assert_eq!((out.code, out.outcome), (-3, "refused"), "{}", out.message);
     assert!(out.message.starts_with(&format!("refused: {code}: ")), "{}", out.message);
     let id = serde_json::from_slice::<Value>(bytes).unwrap()["vote_id"].as_str().unwrap().to_owned();
@@ -463,7 +463,7 @@ fn a_refused_vote_id_can_be_reused_with_a_corrected_body() {
     refused(&mut host, &body("fix-me", P, 9, None), "choice_out_of_range");
     // Another refusal under the same id is not a conflict either.
     refused(&mut host, &body("fix-me", P, 7, Some("x")), "choice_out_of_range");
-    let out = write(&mut host, &body("fix-me", P, 2, None));
+    let out = send(&mut host, &body("fix-me", P, 2, None));
     assert_eq!(out.outcome, "approval_pending");
     assert_eq!(binding(&mut host, "fix-me").unwrap().choice, 2);
     let r = record(&mut host, "fix-me").unwrap();
@@ -475,13 +475,13 @@ fn a_refused_vote_id_can_be_reused_with_a_corrected_body() {
 fn hub_failure_during_checks_is_transient_and_binds_nothing() {
     let mut host = FakeHost::new();
     host.proposal = Err(HubError::Status(502));
-    let out = write(&mut host, &demo("a"));
+    let out = send(&mut host, &demo("a"));
     assert_eq!((out.code, out.outcome), (-4, "transient_error"));
     assert!(out.message.contains("snapshot testnet hub returned status 502"));
     assert!(record(&mut host, "a").is_none() && binding(&mut host, "a").is_none());
     let mut host = FakeHost::new();
     host.vp = Err(HubError::GraphQl("proposal not found".into()));
-    assert_eq!(write(&mut host, &demo("a")).code, -4);
+    assert_eq!(send(&mut host, &demo("a")).code, -4);
     assert!(binding(&mut host, "a").is_none());
 }
 
@@ -492,10 +492,10 @@ fn hub_failure_during_checks_is_transient_and_binds_nothing() {
 #[test]
 fn a_different_body_under_a_bound_id_is_refused_without_external_calls() {
     let mut host = FakeHost::new().signs(&[SignScript::Pending(EXACT_ID, NOW_MS + 300_000)]);
-    write(&mut host, &demo("demo-1"));
+    send(&mut host, &demo("demo-1"));
     let before = record(&mut host, "demo-1");
     for changed in [body("demo-1", P, 2, Some("ballot test")), body("demo-1", P, 1, None), body("demo-1", P, 1, Some("other"))] {
-        let out = write(&mut host, &changed);
+        let out = send(&mut host, &changed);
         assert_eq!((out.code, out.outcome), (-3, "conflict"));
         assert!(out.message.contains("bound to a different vote"));
         assert!(host.calls.is_empty());
@@ -506,11 +506,11 @@ fn a_different_body_under_a_bound_id_is_refused_without_external_calls() {
 #[test]
 fn final_states_answer_without_external_calls() {
     let mut host = FakeHost::new().signs(&[SignScript::Sign]).posts(&[PostScript::Error(400, "invalid choice")]);
-    let out = write(&mut host, &demo("r"));
+    let out = send(&mut host, &demo("r"));
     assert_eq!((out.code, out.outcome), (-3, "rejected_by_snapshot"));
     assert!(out.message.starts_with("rejected by Snapshot: invalid_choice: "));
     assert!(!has_secret(&host, "r"), "secret deleted on a final state");
-    let again = write(&mut host, &demo("r"));
+    let again = send(&mut host, &demo("r"));
     assert_eq!((again.code, again.outcome), (-3, "rejected_by_snapshot"));
     assert_eq!(again.message, "rejected_by_snapshot (invalid_choice): this vote_id is final; write a new vote_id to vote again");
     assert!(host.calls.is_empty());
@@ -525,16 +525,16 @@ fn final_states_answer_without_external_calls() {
 fn denial_near_the_approval_deadline_is_an_inferred_expiry() {
     let expires = NOW_MS + 300_000;
     let mut host = FakeHost::new().signs(&[SignScript::Pending(EXACT_ID, expires), SignScript::Denied, SignScript::Denied]);
-    write(&mut host, &demo("e"));
+    send(&mut host, &demo("e"));
     // Well before the deadline: a refusal, not an expiry.
     host.now = Some(expires - APPROVAL_EXPIRY_MARGIN_MS - 1);
-    let early = write(&mut host, &demo("e"));
+    let early = send(&mut host, &demo("e"));
     assert_eq!((early.code, early.outcome), (-3, "signing_refused"));
     assert!(early.message.contains("CEREMONY_RATE_LIMITED"));
     assert_eq!(record(&mut host, "e").unwrap().status, Status::AwaitingApproval);
     // Within the margin (Signer refuses ~90 s early): expired, inferred.
     host.now = Some(expires - APPROVAL_EXPIRY_MARGIN_MS);
-    let late = write(&mut host, &demo("e"));
+    let late = send(&mut host, &demo("e"));
     assert_eq!((late.code, late.outcome), (-3, "expired"));
     assert!(late.message.contains("approval_expired") && late.message.contains("write a new vote_id"));
     let r = record(&mut host, "e").unwrap();
@@ -545,7 +545,7 @@ fn denial_near_the_approval_deadline_is_an_inferred_expiry() {
 #[test]
 fn denial_of_a_draft_stays_drafted() {
     let mut host = FakeHost::new().signs(&[SignScript::Denied]);
-    let out = write(&mut host, &demo("d"));
+    let out = send(&mut host, &demo("d"));
     assert_eq!((out.code, out.outcome), (-3, "signing_refused"));
     let r = record(&mut host, "d").unwrap();
     assert_eq!(r.status, Status::Drafted);
@@ -555,7 +555,7 @@ fn denial_of_a_draft_stays_drafted() {
 #[test]
 fn signing_failure_is_transient() {
     let mut host = FakeHost::new().signs(&[SignScript::Failed]);
-    let out = write(&mut host, &demo("f"));
+    let out = send(&mut host, &demo("f"));
     assert_eq!((out.code, out.outcome), (-4, "transient_error"));
     assert_eq!(record(&mut host, "f").unwrap().status, Status::Drafted);
 }
@@ -563,7 +563,7 @@ fn signing_failure_is_transient() {
 #[test]
 fn a_signature_by_another_key_is_dropped_and_never_posted() {
     let mut host = FakeHost::new().signs(&[SignScript::WrongKey]);
-    let out = write(&mut host, &demo("w"));
+    let out = send(&mut host, &demo("w"));
     assert_eq!(out.code, -4);
     assert!(out.message.contains("does not recover"));
     assert!(!has_secret(&host, "w") && host.posted.is_empty());
@@ -577,14 +577,14 @@ fn a_signature_by_another_key_is_dropped_and_never_posted() {
 #[test]
 fn transient_failure_keeps_signed_and_the_retry_reposts_identical_bytes() {
     let mut host = FakeHost::new().signs(&[SignScript::Sign]).posts(&[PostScript::Error(503, "update in progress, try later"), PostScript::Accept]);
-    let out = write(&mut host, &demo("t"));
+    let out = send(&mut host, &demo("t"));
     assert_eq!((out.code, out.outcome), (-4, "transient_error"));
     assert!(out.message.contains("update in progress"));
     let r = record(&mut host, "t").unwrap();
     assert_eq!((r.status, r.submit_attempts), (Status::Signed, 1));
     assert!(has_secret(&host, "t"));
     assert_secret_wall(&mut host, &["t"]);
-    let retry = write(&mut host, &demo("t"));
+    let retry = send(&mut host, &demo("t"));
     assert_eq!((retry.code, retry.outcome), (0, "submitted"));
     assert_eq!(host.external_calls(), ["hub.votes", "sequencer.post"], "hub checked before re-posting");
     assert_eq!(host.posted.len(), 2);
@@ -595,10 +595,10 @@ fn transient_failure_keeps_signed_and_the_retry_reposts_identical_bytes() {
 #[test]
 fn a_lost_response_is_reconciled_on_the_hub_without_a_second_post() {
     let mut host = FakeHost::new().signs(&[SignScript::Sign]).posts(&[PostScript::AcceptLost]);
-    let out = write(&mut host, &demo("l"));
+    let out = send(&mut host, &demo("l"));
     assert_eq!(out.code, -4);
     assert_eq!(record(&mut host, "l").unwrap().status, Status::Signed);
-    let retry = write(&mut host, &demo("l"));
+    let retry = send(&mut host, &demo("l"));
     assert_eq!((retry.code, retry.outcome), (0, "submitted"));
     assert_eq!(host.external_calls(), ["hub.votes"]);
     assert_eq!(host.posted.len(), 1);
@@ -610,9 +610,9 @@ fn a_lost_response_is_reconciled_on_the_hub_without_a_second_post() {
 #[test]
 fn hub_down_after_an_attempt_never_reposts_blindly() {
     let mut host = FakeHost::new().signs(&[SignScript::Sign]).posts(&[PostScript::Transport]);
-    write(&mut host, &demo("h"));
+    send(&mut host, &demo("h"));
     host.hub_down = true;
-    let retry = write(&mut host, &demo("h"));
+    let retry = send(&mut host, &demo("h"));
     assert_eq!(retry.code, -4);
     assert!(retry.message.contains("not posting again"));
     assert_eq!(host.posted.len(), 1);
@@ -625,15 +625,15 @@ fn duplicate_is_reconciled_or_stays_signed() {
     host.default_sign = None;
     // Pre-load the hub with exactly the vote this write will sign.
     let mut probe = FakeHost::new().signs(&[SignScript::Pending(EXACT_ID, NOW_MS + 300_000)]);
-    write(&mut probe, &demo("dup"));
+    send(&mut probe, &demo("dup"));
     let b = binding(&mut probe, "dup").unwrap();
     host.hub_votes.push(HubVote { id: b.digest.clone(), voter: b.from.clone(), choice: json!(1), created: b.timestamp });
-    let out = write(&mut host, &demo("dup"));
+    let out = send(&mut host, &demo("dup"));
     assert_eq!((out.code, out.outcome), (0, "submitted"));
     assert!(record(&mut host, "dup").unwrap().receipt.unwrap().reconciled);
 
     let mut host = FakeHost::new().signs(&[SignScript::Sign]).posts(&[PostScript::Error(400, "duplicate message")]);
-    let out = write(&mut host, &demo("dup"));
+    let out = send(&mut host, &demo("dup"));
     assert_eq!(out.code, -4);
     assert!(out.message.contains("duplicate"));
     assert_eq!(record(&mut host, "dup").unwrap().status, Status::Signed);
@@ -651,7 +651,7 @@ fn permanent_errors_map_to_final_states() {
     for (text, now, status, code) in cases {
         let mut host = FakeHost::new().signs(&[SignScript::Sign]).posts(&[PostScript::Error(400, text)]);
         host.now = Some(now);
-        let out = write(&mut host, &demo("p"));
+        let out = send(&mut host, &demo("p"));
         assert_eq!(out.code, -3, "{text}");
         let r = record(&mut host, "p").unwrap();
         assert_eq!((r.status, r.reason_code.as_deref()), (status, Some(code)), "{text}");
@@ -661,13 +661,13 @@ fn permanent_errors_map_to_final_states() {
     // passes the end before the retry posts.
     let mut host = FakeHost::new().signs(&[SignScript::Sign]).posts(&[PostScript::Transport, PostScript::Error(400, "not in voting window")]);
     host.proposal = Ok(Some(proposal(P, "active", "single-choice", START, NEAR_END)));
-    write(&mut host, &demo("late"));
+    send(&mut host, &demo("late"));
     host.now = Some(NEAR_END * 1000 - 1);
-    let out = write(&mut host, &demo("late"));
+    let out = send(&mut host, &demo("late"));
     assert_eq!(out.outcome, "rejected_by_snapshot", "before the end it is a rejection");
     let mut host = FakeHost::new().signs(&[SignScript::Sign]).posts(&[PostScript::Error(400, "not in voting window")]);
     host.proposal = Ok(Some(proposal(P, "active", "single-choice", START, NOW_MS / 1000 + 1)));
-    write(&mut host, &demo("edge"));
+    send(&mut host, &demo("edge"));
     let r = record(&mut host, "edge").unwrap();
     assert_eq!(r.reason_code.as_deref(), Some("not_in_voting_window"));
 }
@@ -680,11 +680,11 @@ fn permanent_errors_map_to_final_states() {
 fn proposal_end_expires_an_unsubmitted_vote_without_signing() {
     let mut host = FakeHost::new().signs(&[SignScript::Pending(EXACT_ID, NOW_MS + 300_000), SignScript::Pending(EXACT_ID, NEAR_END * 1000)]);
     host.proposal = Ok(Some(proposal(P, "active", "single-choice", START, NEAR_END)));
-    write(&mut host, &demo("x"));
+    send(&mut host, &demo("x"));
     host.now = Some(NEAR_END * 1000 - 1);
-    assert_eq!(write(&mut host, &demo("x")).outcome, "approval_pending", "one ms before the end still signs");
+    assert_eq!(send(&mut host, &demo("x")).outcome, "approval_pending", "one ms before the end still signs");
     host.now = Some(NEAR_END * 1000);
-    let out = write(&mut host, &demo("x"));
+    let out = send(&mut host, &demo("x"));
     assert_eq!((out.code, out.outcome), (-3, "expired"));
     assert!(out.message.contains("proposal_closed"));
     assert!(host.calls.is_empty(), "no signing after the end");
@@ -696,11 +696,11 @@ fn a_frozen_timestamp_expires_before_the_sequencer_limit() {
     let limit = NOW_MS / 1000 + SEQUENCER_MAX_AGE_SECS - STALE_MARGIN_SECS;
     let mut host = FakeHost::new().signs(&[SignScript::Pending(EXACT_ID, NOW_MS + 300_000), SignScript::Pending(EXACT_ID, u64::MAX)]);
     host.proposal = Ok(Some(proposal(P, "active", "single-choice", START, far_end)));
-    write(&mut host, &demo("s"));
+    send(&mut host, &demo("s"));
     host.now = Some(limit * 1000);
-    assert_eq!(write(&mut host, &demo("s")).outcome, "approval_pending");
+    assert_eq!(send(&mut host, &demo("s")).outcome, "approval_pending");
     host.now = Some((limit + 1) * 1000);
-    let out = write(&mut host, &demo("s"));
+    let out = send(&mut host, &demo("s"));
     assert_eq!(out.outcome, "expired");
     assert!(out.message.contains("timestamp_stale"));
 }
@@ -708,14 +708,14 @@ fn a_frozen_timestamp_expires_before_the_sequencer_limit() {
 #[test]
 fn a_signed_vote_past_the_end_is_checked_on_the_hub_first() {
     let mut host = FakeHost::new().signs(&[SignScript::Sign]).posts(&[PostScript::AcceptLost]);
-    write(&mut host, &demo("z"));
+    send(&mut host, &demo("z"));
     host.now = Some(END * 1000 + 5);
-    let out = write(&mut host, &demo("z"));
+    let out = send(&mut host, &demo("z"));
     assert_eq!(out.outcome, "submitted", "the hub shows it: not expired");
     let mut host = FakeHost::new().signs(&[SignScript::Sign]).posts(&[PostScript::Transport]);
-    write(&mut host, &demo("z"));
+    send(&mut host, &demo("z"));
     host.now = Some(END * 1000 + 5);
-    let out = write(&mut host, &demo("z"));
+    let out = send(&mut host, &demo("z"));
     assert_eq!(out.outcome, "expired");
     assert!(!has_secret(&host, "z"));
 }
@@ -735,12 +735,12 @@ fn crash_at_any_store_write_converges() {
         host.default_sign = Some(SignScript::Sign);
         host.post_script = VecDeque::from(vec![PostScript::Accept; 4]);
         host.store.writes_left = Some(k);
-        write(&mut host, &demo("c"));
+        send(&mut host, &demo("c"));
         host.store.writes_left = None;
         let mut status = None;
         for round in 1..=6 {
             host.now = Some(NOW_MS + round * (LEASE_STALE_MS + 1_000));
-            let out = write(&mut host, &demo("c"));
+            let out = send(&mut host, &demo("c"));
             status = record(&mut host, "c").map(|r| r.status);
             if out.outcome == "counted" {
                 break;
@@ -759,9 +759,9 @@ fn crash_at_any_store_write_converges() {
 #[test]
 fn a_binding_without_a_record_resumes_as_a_draft() {
     let mut host = FakeHost::new().signs(&[SignScript::Pending(EXACT_ID, NOW_MS + 300_000), SignScript::Pending(EXACT_ID, NOW_MS + 300_000)]);
-    write(&mut host, &demo("b"));
+    send(&mut host, &demo("b"));
     host.store.state.remove(&scope().record_key("b"));
-    let out = write(&mut host, &demo("b"));
+    let out = send(&mut host, &demo("b"));
     assert_eq!(out.outcome, "approval_pending");
     assert_eq!(host.external_calls(), ["sign"]);
 }
@@ -769,9 +769,9 @@ fn a_binding_without_a_record_resumes_as_a_draft() {
 #[test]
 fn a_lost_secret_is_signed_again_over_the_same_payload() {
     let mut host = FakeHost::new().signs(&[SignScript::Sign, SignScript::Sign]).posts(&[PostScript::Transport, PostScript::Accept]);
-    write(&mut host, &demo("g"));
+    send(&mut host, &demo("g"));
     host.store.secrets.clear();
-    let out = write(&mut host, &demo("g"));
+    let out = send(&mut host, &demo("g"));
     assert_eq!(out.outcome, "submitted");
     // Hub check (attempt 1 happened), re-sign, hub check again on the way
     // to the re-post (the record went through drafted), then the POST.
@@ -782,12 +782,12 @@ fn a_lost_secret_is_signed_again_over_the_same_payload() {
 #[test]
 fn an_inconsistent_binding_is_never_signed() {
     let mut host = FakeHost::new().signs(&[SignScript::Pending(EXACT_ID, NOW_MS + 300_000)]);
-    write(&mut host, &demo("i"));
+    send(&mut host, &demo("i"));
     let key = scope().binding_key("i");
     let mut b: Binding = get_json(&mut host, &key, "b").unwrap().unwrap();
     b.timestamp += 1;
     put_json(&mut host, &key, &b, "b").unwrap();
-    let out = write(&mut host, &demo("i"));
+    let out = send(&mut host, &demo("i"));
     assert_eq!(out.code, -4);
     assert!(!host.calls.contains(&"sign"));
 }
@@ -797,12 +797,12 @@ fn a_concurrent_write_is_busy_until_the_lease_is_stale() {
     let mut host = FakeHost::new().signs(&[SignScript::Pending(EXACT_ID, NOW_MS + 300_000)]);
     let lease_key = scope().lease_key("busy");
     let held = Lease::acquire(&mut host, &lease_key, [9; 16], NOW_MS).unwrap();
-    let out = write(&mut host, &demo("busy"));
+    let out = send(&mut host, &demo("busy"));
     assert_eq!((out.code, out.outcome), (-3, "busy"));
     assert!(host.calls.is_empty());
     assert_eq!(marker(&mut host).record, None);
     host.now = Some(NOW_MS + LEASE_STALE_MS + 1);
-    assert_eq!(write(&mut host, &demo("busy")).outcome, "approval_pending");
+    assert_eq!(send(&mut host, &demo("busy")).outcome, "approval_pending");
     held.release(&mut host);
     assert!(!host.store.state.contains_key(&lease_key), "released after the write");
 }
@@ -811,7 +811,7 @@ fn a_concurrent_write_is_busy_until_the_lease_is_stale() {
 fn an_invalid_body_leaves_only_the_marker() {
     let mut host = FakeHost::new();
     let bad = br#"{"vote_id":"ok-1","space":"bloom-ballot-182c.eth","proposal":"0x00","choice":1,"extra":true}"#;
-    let out = write(&mut host, bad);
+    let out = send(&mut host, bad);
     assert_eq!((out.code, out.outcome), (-3, "invalid_body"));
     assert!(out.message.starts_with("invalid body: "));
     assert!(host.calls.is_empty());
@@ -824,7 +824,7 @@ fn an_invalid_body_leaves_only_the_marker() {
 fn no_clock_is_transient() {
     let mut host = FakeHost::new();
     host.now = Some(0);
-    let out = write(&mut host, &demo("n"));
+    let out = send(&mut host, &demo("n"));
     assert_eq!((out.code, out.outcome), (-4, "transient_error"));
     assert!(host.calls.is_empty());
 }
@@ -866,7 +866,7 @@ fn reads_show_state_typed_data_verify_and_live_evidence() {
     assert!(vote_document(&mut host, &scope(), "demo-1").unwrap().is_none());
     assert_eq!(new_document(&mut host, &scope()).unwrap()["last_write"], Value::Null);
 
-    write(&mut host, &demo("demo-1"));
+    send(&mut host, &demo("demo-1"));
     host.calls.clear();
     let doc = vote_document(&mut host, &scope(), "demo-1").unwrap().unwrap();
     assert!(host.calls.is_empty(), "no hub call before signing");
@@ -884,7 +884,7 @@ fn reads_show_state_typed_data_verify_and_live_evidence() {
     );
     assert_eq!(doc["live"], Value::Null);
 
-    write(&mut host, &demo("demo-1"));
+    send(&mut host, &demo("demo-1"));
     let doc = vote_document(&mut host, &scope(), "demo-1").unwrap().unwrap();
     assert_eq!(doc["status"], "submitted", "the read never writes the store");
     assert_eq!(doc["live"]["counted"], true);
@@ -904,8 +904,8 @@ fn reads_show_state_typed_data_verify_and_live_evidence() {
 #[test]
 fn refused_records_read_without_typed_data_and_list_with_bound_ones() {
     let mut host = FakeHost::new().signs(&[SignScript::Pending(EXACT_ID, NOW_MS + 300_000)]);
-    write(&mut host, &body("bad-choice", P, 4, None));
-    write(&mut host, &demo("demo-1"));
+    send(&mut host, &body("bad-choice", P, 4, None));
+    send(&mut host, &demo("demo-1"));
     let doc = vote_document(&mut host, &scope(), "bad-choice").unwrap().unwrap();
     assert_eq!(doc["status"], "refused");
     assert_eq!(doc["bound"], false);

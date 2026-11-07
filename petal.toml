@@ -4,18 +4,23 @@ name = "ballot"
 [consent]
 summary = "Read Snapshot governance proposals and cast owner-approved votes"
 
-# Package ceiling = union of what routes import. The read routes
-# spaces/[space]/proposals.json and proposals/[proposal].json import
-# bloom:http. The temporary Step 1 route hello-sign.json imports bloom:sign
-# (sign_payload), bloom:store (its attempt record) and bloom:vfs.read (the
-# account's address.evm). Directory routes import nothing.
+# Package ceiling = union of what routes import (docs/plan-votes.md §7):
+# - spaces/[space]/proposals.json, proposals/[proposal].json: bloom:http;
+# - accounts/[wallet]/[index]/votes/new.json: bloom:http (hub checks,
+#   sequencer POST), bloom:sign (sign_payload), bloom:store (vote records,
+#   the creds/ signature), bloom:vfs.read (the account's address.evm);
+# - votes/[vote_id].json: bloom:http (live hub check), bloom:store;
+# - votes/$index: bloom:store; other directory routes import nothing.
 [caps]
 allowed = ["bloom:http", "bloom:sign", "bloom:store", "bloom:vfs.read"]
 
-# Snapshot hub GraphQL, one table per network (route/src/lib.rs
-# Network::hub_graphql_url). Exact path, no wildcard. Key names as in
-# bloom-petal-hyperliquid petal.toml. The sequencers are not listed: no route
-# submits anything yet.
+# Snapshot hub GraphQL (proposal reads, vp, votes), one table per network
+# (route/src/lib.rs Network::hub_graphql_url), and the TESTNET sequencer for
+# vote submission (Network::sequencer_submit_url, path "/" exactly). Exact
+# paths, no wildcard; key names as in bloom-petal-hyperliquid petal.toml.
+# Mainnet votes are refused in code (mainnet_disabled), so the mainnet
+# sequencer is deliberately absent (least authority; README "Enabling mainnet
+# votes").
 [[net.allow]]
 binding = "testnet"
 host = "testnet.hub.snapshot.org"
@@ -28,10 +33,18 @@ host = "hub.snapshot.org"
 methods = ["post"]
 paths = ["/graphql"]
 
+[[net.allow]]
+binding = "testnet-sequencer"
+host = "testnet.seq.snapshot.org"
+methods = ["post"]
+paths = ["/"]
+
 [sign]
 allowed_intents = ["snapshot.vote"]
 
-# Public attempt records only. No secret namespace: no secret is stored and
-# signature bytes are never persisted.
+# state: vote bindings, records, leases and the last-write marker.
+# secrets: a vote's signature between signing and submission, only under
+# creds/votes/... (the SDK reads and deletes a secret only via a creds/ key).
 [store]
 namespaces = ["state"]
+secret_namespaces = ["secrets"]

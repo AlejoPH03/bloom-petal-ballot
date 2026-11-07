@@ -153,12 +153,12 @@ fn locked<H: VoteHost>(host: &mut H, scope: &Scope, body: &VoteBody, now_ms: u64
         }
         Err(LeaseError::Store(error)) => return Step::fail(-4, "transient_error", format!("store: {error}"), false),
     };
-    let step = dispatch(host, scope, body, now_ms);
+    let step = resume_or_draft(host, scope, body, now_ms);
     lease.release(host);
     step
 }
 
-fn dispatch<H: VoteHost>(host: &mut H, scope: &Scope, body: &VoteBody, now_ms: u64) -> Step {
+fn resume_or_draft<H: VoteHost>(host: &mut H, scope: &Scope, body: &VoteBody, now_ms: u64) -> Step {
     let binding = match get_json::<Binding>(host, &scope.binding_key(&body.vote_id), "vote binding") {
         Ok(binding) => binding,
         Err(error) => return store_failure(error),
@@ -265,7 +265,7 @@ fn draft<H: VoteHost>(host: &mut H, scope: &Scope, body: &VoteBody, now_ms: u64)
     match put_new_json(host, &scope.binding_key(&body.vote_id), &binding, "vote binding") {
         Ok(PutNew::Created) => {}
         // Bound by a concurrent write in between: resume from what is stored.
-        Ok(PutNew::Exists) => return dispatch(host, scope, body, now_ms),
+        Ok(PutNew::Exists) => return resume_or_draft(host, scope, body, now_ms),
         Err(error) => return store_failure(error),
     }
     let record = Record::new(&body.vote_id, Status::Drafted, now_ms);
