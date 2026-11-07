@@ -210,3 +210,27 @@ impl VoteHost for SdkHost<'_> {
         }
     }
 }
+
+impl crate::inbox::InboxHost for SdkHost<'_> {
+    fn now_ms(&mut self) -> Option<u64> {
+        VoteHost::now_ms(self)
+    }
+
+    fn account_address(&mut self) -> Result<String, String> {
+        VoteHost::account_address(self)
+    }
+
+    fn hub_inbox(&mut self, network: Network, space: &str) -> Result<crate::inbox::InboxData, HubError> {
+        hub::fetch(network, &crate::inbox::inbox_query(space))
+    }
+
+    fn hub_voted(
+        &mut self,
+        network: Network,
+        voter: &str,
+        proposals: &[String],
+    ) -> Result<Vec<crate::inbox::VotedVote>, HubError> {
+        let data: crate::inbox::VotedData = hub::fetch(network, &crate::inbox::voted_query(voter, proposals))?;
+        Ok(data.votes)
+    }
+}

@@ -7,6 +7,7 @@
 use std::fmt;
 
 pub mod hub;
+pub mod inbox;
 pub mod mandate;
 pub mod proposals;
 pub mod snapshot;
