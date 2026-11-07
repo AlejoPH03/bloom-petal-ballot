@@ -8,11 +8,20 @@ cast gasless EIP-712 votes that Bloom signs only after the owner approves.
 proposals, and `<network>/proposals/<id>.json` returns one proposal (with
 `vote_type_supported` and `voting_open`), read-only from the Snapshot hub.
 Votes (`<network>/accounts/<wallet>/<n>/votes/new.json`, one record per vote
-in `votes/<vote_id>.json`) are implemented and host-tested on **testnet**
-(docs/plan-votes.md); the live acceptance run with owner ceremonies is
-pending. Mainnet votes are disabled. The Snapshot testnet kit (findings,
+in `votes/<vote_id>.json`) work on **testnet** and passed the live
+acceptance run with owner ceremonies (docs/plan-votes.md). Mainnet votes are disabled. The Snapshot testnet kit (findings,
 golden vector, recorded responses, space scripts) is in
 `docs/snapshot-testnet/`.
+
+`<network>/accounts/<wallet>/<n>/inbox.json` is the agent's starting point
+(open proposals in the mandate's spaces, whether this account voted,
+closing-soon and result alerts), and `mandate.json` holds the owner's
+standing rules (allowed spaces, blocked keywords, required reason, a daily
+limit). **The mandate is advisory:** the Petal stores it and the agent can
+edit it. It filters bad drafts before the owner is asked; it is not a
+security boundary, and every vote still needs the owner's approval in a
+passkey ceremony. An owner-signed, binding mandate is future work
+(docs/plan-mandate-inbox.md).
 
 At these Bloom pins the owner's ceremony shows only the vote's digest, not
 its fields: before approving, run the `verify` commands in

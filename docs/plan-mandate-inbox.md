@@ -1,6 +1,7 @@
 # Plan: the owner's mandate (`mandate.json`) and the agent's inbox (`inbox.json`)
 
-**Status: PLAN (2026-11-08), implemented the same day.** Revisions as in
+**Status: IMPLEMENTED (2026-11-08)**: host-tested, built, checked and installed
+for reads; the live test (writes) is the human's. Revisions as in
 `docs/plan-votes.md` (Petal SDK `ba76944`, Bloom `433a0daf`), plus the vote
 flow at `db8c93e`. Hub queries are recorded under
 `docs/snapshot-testnet/responses/` (FINDINGS.md §11).

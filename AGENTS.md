@@ -20,7 +20,9 @@ external call. Design: `docs/plan-votes.md`.
 | `/petals/ballot/<network>/proposals/<id>.json` | file, cached 30 s | `proposal` = `0x` + 64 lowercase hex | `network`, `fetched_at`, `id`, `space`, `author`, `title`, `body` (first 8192 bytes, cut on a UTF-8 boundary), `truncated`, `choices`, `type`, `start`, `end`, `snapshot`, `state`, `scores`, `scores_total`, `votes`, `vote_type_supported`, `voting_open`. Unknown id is `not found` | — | `bloom:http` |
 | `/petals/ballot/<network>/accounts/` | dir | `network` | wallets (listed by Bloom) | — | none |
 | `/petals/ballot/<network>/accounts/<wallet>/` | dir | `wallet` (Bloom wallet id) | numbered accounts (listed by Bloom) | — | none |
-| `/petals/ballot/<network>/accounts/<wallet>/<n>/` | dir | `wallet`, `index` | lists `votes/` | — | none |
+| `/petals/ballot/<network>/accounts/<wallet>/<n>/` | dir | `wallet`, `index` | lists `inbox.json`, `mandate.json`, `votes/` | — | none |
+| `…/<n>/inbox.json` | file, cached 5 s | `network`, `wallet`, `index` | `{account, fetched_at, spaces: [{space, open: [{id, title, type, vote_type_supported, closes_in_s, end, voted, our_choice}] \| error}], alerts: [closing_soon \| result], notes}` for the first 10 mandate spaces; without mandate spaces an `explanation` | — | `bloom:http`, `bloom:store`, `bloom:vfs.read` |
+| `…/<n>/mandate.json` | writable, uncached | `network`, `wallet`, `index` | `mandate` (or `null`), `notes`, `updated_ms`, `advisory`, `body_schema`, `last_write` | `{spaces?, follow?, blocked_keywords?, require_reason?, max_votes_per_day?}` ≤ 8 KiB replaces the mandate; `{}` clears it | `bloom:store` |
 | `…/<n>/votes/` | dir | `network`, `wallet`, `index` | `new.json` plus one `<vote_id>.json` per vote of this account | — | `bloom:store` |
 | `…/<n>/votes/new.json` | writable, uncached | `network`, `wallet`, `index` | `body_schema`, `rules`, `last_write` (marker of the latest write: `at_ms`, `body_sha256`, `canonical_body_sha256`, `vote_id`, `outcome`, `code`, `message`, `record`) | `{vote_id, space, proposal, choice, reason?}` ≤ 4 KiB: checks, freezes, signs (owner approval), submits to the sequencer | `bloom:http`, `bloom:sign`, `bloom:store`, `bloom:vfs.read` |
 | `…/<n>/votes/<vote_id>.json` | file, cached 5 s | `vote_id` = `[a-z0-9-]{1,48}`, not `new` | `status`, `next`, `reason_code`, `detail`, `inferred`, `summary` (space, proposal and title, choice and label, reason, from, times), `typed_data`, `preimage`, `digest`, `verify`, `approval`, `signature_sha256`, `receipt`, `counted`, `history`, `live` (hub check, no store write). Unknown id is `not found` | — | `bloom:http`, `bloom:store` |
@@ -49,6 +51,30 @@ sanitized message. Both reads POST only to the network's fixed hub endpoint
 `https://hub.snapshot.org/graphql`); route values travel only as GraphQL
 variables. The only other `[[net.allow]]` entry is the testnet sequencer
 (`POST https://testnet.seq.snapshot.org/`), used by `votes/new.json`.
+
+### Starting point: inbox and mandate (agents)
+
+Read `…/<n>/inbox.json` first. It lists, for each space in the account's
+mandate, the proposals open now (soonest end first) with `voted` /
+`our_choice` for this account, plus alerts: `closing_soon` (open, not voted,
+under 24 h left) and `result` (a closed recent proposal you voted on: the
+winning choice by scores, your choice, `our_choice_won`). A space whose hub
+query failed shows `error`; the others still render. With no mandate spaces
+the inbox only explains how to set them.
+
+`mandate.json` holds the owner's standing rules for new votes:
+`spaces` (allowed spaces; empty = any), `blocked_keywords` (refuse a proposal
+whose title or body contains one, case-insensitive), `require_reason`,
+`max_votes_per_day` (1-100, rolling 24 h over drafted votes), and `follow`
+(space → delegate address; stored only). A write replaces the whole mandate;
+`{}` clears it. Read it back after writing (`last_write`). **The mandate is
+advisory**: it is stored by the Petal and you can edit it, so it is not a
+security boundary. It stops bad drafts before the owner is asked; every vote
+still needs the owner's approval. Do not weaken it to get a vote through:
+ask the owner. In `votes/new.json` it refuses (-3, nothing bound, no
+ceremony) with `mandate_space_not_allowed` (before any hub call),
+`mandate_blocked_keyword` (names the keyword), `mandate_reason_required` or
+`mandate_daily_limit`. A vote already bound is never re-checked.
 
 ### Casting a vote (agents)
 
@@ -113,7 +139,8 @@ editing it changes the package hash; Bloom does not serve it under
 Route files own their parameter parsing and behaviour. `route/src` holds typed
 helpers only (`Network`, input validators, the hub GraphQL transport in
 `hub.rs`, proposal queries and projections in `proposals.rs`, EIP-712 in
-`snapshot.rs`, the vote flow in `votes/`: `flow.rs` is the pure state machine
+`snapshot.rs`, the advisory mandate in `mandate.rs`, the inbox in
+`inbox.rs`, the vote flow in `votes/`: `flow.rs` is the pure state machine
 over the `VoteHost` trait, `host.rs` the only file that calls the Petal SDK);
 it never dispatches on route identity. Recorded hub responses
 and the golden vote vector used by the tests are in `docs/snapshot-testnet/`. Run `bash scripts/check-route-architecture.sh` and `petal check`
