@@ -4,12 +4,29 @@ name = "ballot"
 [consent]
 summary = "Read Snapshot governance proposals and cast owner-approved votes"
 
-# Package ceiling = union of what routes import. Only the temporary Step 1
-# route hello-sign.json imports anything: bloom:sign (sign_payload),
-# bloom:store (its attempt record) and bloom:vfs.read (the account's
-# address.evm). Directory routes import nothing.
+# Package ceiling = union of what routes import. The read routes
+# spaces/[space]/proposals.json and proposals/[proposal].json import
+# bloom:http. The temporary Step 1 route hello-sign.json imports bloom:sign
+# (sign_payload), bloom:store (its attempt record) and bloom:vfs.read (the
+# account's address.evm). Directory routes import nothing.
 [caps]
-allowed = ["bloom:sign", "bloom:store", "bloom:vfs.read"]
+allowed = ["bloom:http", "bloom:sign", "bloom:store", "bloom:vfs.read"]
+
+# Snapshot hub GraphQL, one table per network (route/src/lib.rs
+# Network::hub_graphql_url). Exact path, no wildcard. Key names as in
+# bloom-petal-hyperliquid petal.toml. The sequencers are not listed: no route
+# submits anything yet.
+[[net.allow]]
+binding = "testnet"
+host = "testnet.hub.snapshot.org"
+methods = ["post"]
+paths = ["/graphql"]
+
+[[net.allow]]
+binding = "mainnet"
+host = "hub.snapshot.org"
+methods = ["post"]
+paths = ["/graphql"]
 
 [sign]
 allowed_intents = ["snapshot.vote"]
