@@ -343,3 +343,13 @@ envelope `address` (the hub stores that address, `snapshot-sequencer/src/writer/
 **Vote id = EIP-712 digest:** `golden/digest_manual.sh` over the §8 vote message (`golden/live_vote_message.json`)
 prints `0xd74075ee566b3ee70e6fa9db10c4b491fe814549e1f5e3507a32f03b63c9a657`, the id above, as expected from
 `ingestor.ts:119` → snapshot.js `src/verify/evm.ts:17-20` (`_TypedDataEncoder.hash`).
+
+## 11. Inbox hub queries (recorded 2026-11-08)
+Same request shape as §10 (`gqlv.sh`). Nothing signed or submitted.
+
+| query (`responses/`) | variables | response file | result |
+|---|---|---|---|
+| `ballot_inbox.graphql`: `open` = active proposals of a space by `end` asc (first 20), `recent` = its 10 newest, each with `scores` | `bloom-ballot-182c.eth` | `ballot_inbox_testnet.json` | 3 open (test proposal scores `[2,0,0]`), 4 recent incl. the closed "Short-lived test" (no votes, `scores: []`) |
+| same | `no-such-space-xyz.eth` | `ballot_inbox_unknown_space.json` | both lists empty, no error |
+| `ballot_voted.graphql`: `votes(first: 50, where: {voter: $voter, proposal_in: $proposals})` with `$proposals: [String]!` | Bloom account `0x0c056ae6…2751` (checksummed), the four test-space proposals | `ballot_voted_testnet.json` | one vote: the accepted live vote on "bloom-ballot test", choice 1 |
+| same | throwaway, all lowercase | `ballot_voted_testnet_lowercase_voter.json` | its Step 0 vote (`0xd74075ee…`): `proposal_in` works and `voter` is case-insensitive here too |

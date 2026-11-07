@@ -1,0 +1,1 @@
+query Inbox($space: String!) { open: proposals(first: 20, where: {space: $space, state: "active"}, orderBy: "end", orderDirection: asc) { id title type choices start end state scores scores_total } recent: proposals(first: 10, where: {space: $space}, orderBy: "created", orderDirection: desc) { id title type choices start end state scores scores_total } }
