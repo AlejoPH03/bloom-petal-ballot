@@ -1,6 +1,7 @@
 //! The Bloom-backed [`VoteHost`]: the only code of the vote flow that calls
 //! the Petal SDK. The signing calls are the ones Step 1 proved live
-//! (`hello.rs`, docs/plan-hello-signature.md), with the derived nonce only.
+//! (the removed `hello.rs`, docs/plan-hello-signature.md), with the derived
+//! nonce only.
 //!
 //! SDK calls (pinned rev ba76944, `crates/petal-sdk/src`):
 //! - store: `sdk::store_get` (lib.rs:579), `store_put` (:592), `store_put_new`

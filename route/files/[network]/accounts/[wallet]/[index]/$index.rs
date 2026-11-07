@@ -3,7 +3,6 @@ petal::route_file!(
     ctx_list: |ctx: &petal::Ctx| -> Result<Vec<petal::RouteChild>, petal::DispatchResponse> {
         let value = petal::param(ctx, "network")?;
         crate::Network::parse(value).map_err(|error| petal::error(-1, error.message()))?;
-        // TEMPORARY (Step 1): hello-sign.json is removed in the next commit.
-        Ok(vec![petal::dir("votes"), petal::writable("hello-sign.json")])
+        Ok(vec![petal::dir("votes")])
     },
 );

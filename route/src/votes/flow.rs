@@ -830,7 +830,7 @@ fn next_step(status: Status) -> &'static str {
 
 /// Exact commands for the owner to recompute the digest with Bloom's own
 /// EIP-712 tool (`bloom-vfs/src/handlers/tools.rs:17`, `539-545`), without
-/// trusting Ballot's hashing (as `hello::verify_section` did in Step 1).
+/// trusting Ballot's hashing (as Step 1's hello-sign.json did).
 pub fn verify_section(path: &str, digest: &str) -> Value {
     json!({
         "why": "The ceremony shows only the digest. Recompute it from the readable typed_data with Bloom's own tool and compare before approving.",

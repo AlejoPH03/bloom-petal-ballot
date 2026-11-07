@@ -6,7 +6,7 @@
 #
 # Run it yourself from the repo root:  bash scripts/dev-cycle.sh
 #
-# Rules (CLAUDE.md, plan-hello-signature.md):
+# Rules (CLAUDE.md, docs/plan-hello-signature.md, docs/plan-votes.md):
 # - Provenance enrollment happens ONLY here. It rewrites the developer triad's
 #   provenance-catalog.json, so it asks for confirmation first.
 # - This script never restarts the triad: it pauses for you to do it.
@@ -56,7 +56,7 @@ step "2/7 petal build and petal check"
 petal build --root .
 petal check --root .
 
-step "3/7 component imports (expect sign, store and vfs only on hello-sign.json)"
+step "3/7 component imports (expect sign and vfs only on votes/new.json; store on votes/*; http on votes/new.json, votes/[vote_id].json and the proposal reads)"
 while IFS= read -r wasm; do
   echo "== $wasm"
   wasm-tools component wit "$wasm" | grep -E 'import bloom:' || true
@@ -119,20 +119,23 @@ esac
 echo "OK: enrolled == built == installed: $package_hash"
 
 wallet="${BALLOT_WALLET:-main}"
-route="/petals/ballot/testnet/accounts/$wallet/0/hello-sign.json"
+votes="/petals/ballot/testnet/accounts/$wallet/0/votes"
 cat <<EOF
 
-Owner steps (docs/plan-hello-signature.md, "Test procedure"):
-  bloom vfs cat $route
-  bloom vfs write $route --data '{"attempt":0}'
+Owner steps (docs/plan-votes.md section 12, "Live acceptance"; testnet only):
+  bloom vfs cat $votes/new.json                      (schema, rules, last_write)
+  bloom vfs write $votes/new.json --data '<body>'
     -> first: approval pending (<policy op id>). The owner opens the ceremony_url in
        /wallets/$wallet/policy-updates/pending/<id>/approval_challenge.json
        ("Approve policy change": adds $package_hash)
-  bloom vfs write $route --data '{"attempt":0}'      (identical retry)
-    -> approval pending (<request id>). The owner opens the ceremony_url in
-       /petal-signing-requests/<id>.json PROMPTLY. Before approving, run the
-       "verify" commands from the read and compare out.hex with the ceremony's exact hash.
-  bloom vfs write $route --data '{"attempt":0}'      (immediately after approving)
-    -> success; read shows status "signed" and signature_recovers_to_account true
-If an approval expired, use the next attempt number: --data '{"attempt":1}'
+  bloom vfs write $votes/new.json --data '<body>'    (identical retry)
+    -> approval pending (<request id>). Before approving, run the "verify" commands
+       from $votes/<vote_id>.json and compare out.hex with the ceremony's exact hash.
+       The owner opens the ceremony_url in /petal-signing-requests/<id>.json PROMPTLY.
+  bloom vfs write $votes/new.json --data '<body>'    (immediately after approving)
+    -> success; $votes/<vote_id>.json shows status "submitted", receipt.id = digest
+  bloom vfs write $votes/new.json --data '<body>'    (identical retry)
+    -> success; status "counted" once the hub shows the vote
+If a vote expires (expired: approval_expired, proposal_closed, timestamp_stale),
+write the same vote under a NEW vote_id.
 EOF

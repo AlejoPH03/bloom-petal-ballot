@@ -6,7 +6,6 @@
 
 use std::fmt;
 
-pub mod hello;
 pub mod hub;
 pub mod proposals;
 pub mod snapshot;

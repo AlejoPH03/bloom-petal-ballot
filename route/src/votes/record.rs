@@ -122,7 +122,7 @@ impl Binding {
 
 /// Where the owner finds a pending ceremony. The route cannot tell a
 /// policy-update operation id from an exact request id (both 64 hex), so both
-/// owner locations are named (as `hello::Pending` did).
+/// owner locations are named (as Step 1's hello-sign.json did).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pending {
     pub action_id: String,
