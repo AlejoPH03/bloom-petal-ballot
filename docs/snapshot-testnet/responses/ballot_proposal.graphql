@@ -1,0 +1,1 @@
+query Proposal($id: String!) { proposal(id: $id) { id space { id } author title body choices type start end snapshot state scores scores_total votes } }

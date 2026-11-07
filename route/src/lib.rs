@@ -7,6 +7,8 @@
 use std::fmt;
 
 pub mod hello;
+pub mod hub;
+pub mod proposals;
 pub mod snapshot;
 
 /// Snapshot hub base URL for the testnet (confirmed in

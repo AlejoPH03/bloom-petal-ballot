@@ -1,0 +1,1 @@
+query Proposals($space: String!) { active: proposals(first: 100, where: {space: $space, state: "active"}, orderBy: "created", orderDirection: desc) { id title type choices start end state scores_total created } recent: proposals(first: 10, where: {space: $space}, orderBy: "created", orderDirection: desc) { id title type choices start end state scores_total created } }
