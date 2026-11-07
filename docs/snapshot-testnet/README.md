@@ -34,6 +34,7 @@ Scripts hard-refuse any RPC other than Sepolia and any sequencer other than `htt
 
 ## Other contents
 - `gql.sh '<query>'` – POST a GraphQL query to `https://testnet.hub.snapshot.org/graphql`.
+- `gqlv.sh <query.graphql> '<variables>'` – POST a query file with GraphQL variables (the read routes' request shape).
 - `golden/` – golden Vote vector for the Rust unit test (`typed_data.json`, digest, signature, signer) and the
   independent digest script (`digest_manual.sh`, cast-only hashStruct).
 - `responses/` – raw hub responses cited in FINDINGS.md.

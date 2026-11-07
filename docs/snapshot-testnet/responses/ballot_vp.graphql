@@ -1,0 +1,1 @@
+query Vp($voter: String!, $space: String!, $proposal: String) { vp(voter: $voter, space: $space, proposal: $proposal) { vp vp_by_strategy vp_state } }

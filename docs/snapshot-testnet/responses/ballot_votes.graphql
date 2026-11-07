@@ -1,0 +1,1 @@
+query Votes($proposal: String!, $voter: String!) { votes(first: 10, where: {proposal: $proposal, voter: $voter}) { id voter choice created } }

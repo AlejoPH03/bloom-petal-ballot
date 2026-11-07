@@ -321,3 +321,25 @@ The hub's `start` was 1 s later than our signed `start` (1793989311 vs 179398931
 - ENS docs conflict on the Sepolia test-token addresses. Only the deployments-page MockUSDC and Circle USDC are accepted on-chain.
 - The live sequencer accepted the `settings`, `proposal` and `vote` type hashes we computed from our clone, so its bundled snapshot.js matches on these types.
 - The vote counts against the 3-vote budget: 1 of 3 is used. The proposal stays active until 1794593689 (2026-11-13). A re-vote replaces the earlier vote only if its timestamp is later. An older timestamp is rejected with `already voted at later time`, and an equal one is decided by comparing ids (`writer/vote.ts:139-152`). This matters for idempotency and retries in the petal.
+
+## 10. Vote-flow hub queries with GraphQL variables (recorded 2026-11-07)
+Recorded with `gqlv.sh <query.graphql> '<variables>'`, the request shape `route/src/hub.rs` sends
+(`{"query": <constant>, "variables": {...}}`). Nothing was signed or submitted.
+
+| query (`responses/`) | variables | response file | result |
+|---|---|---|---|
+| `ballot_vp.graphql`: `query Vp($voter: String!, $space: String!, $proposal: String) { vp(voter: $voter, space: $space, proposal: $proposal) { vp vp_by_strategy vp_state } }` | Bloom account `0x0c056ae6…2751`, `bloom-ballot-182c.eth`, "bloom-ballot test" `0x8ef55d41…4b00` | `ballot_vp_testnet.json` | `vp 1, vp_state "final"` (ticket strategy) |
+| same | same account, unknown proposal `0x…00ff` | `ballot_vp_unknown_proposal.json` | GraphQL error `proposal not found`, `data: null` |
+| `ballot_votes.graphql`: `query Votes($proposal: String!, $voter: String!) { votes(first: 10, where: {proposal: $proposal, voter: $voter}) { id voter choice created } }` | "bloom-ballot test", throwaway (checksummed) | `ballot_votes_testnet.json` | one vote, id `0xd74075ee…a657`, choice 1 |
+| same | "bloom-ballot test", Bloom account | `ballot_votes_testnet_empty.json` | `[]` (has not voted) |
+| same | "bloom-ballot test", throwaway all lowercase | `ballot_votes_testnet_lowercase_voter.json` | the same vote |
+
+**Voter filter case sensitivity:** the hub matches `voter` regardless of the case of the 40 hex digits:
+checksummed, all-lowercase and all-uppercase hex (`0x` + upper) return the same vote, and the hub
+returns `voter` checksummed. Only the prefix is significant: `0X…` returns `[]`. Ballot always sends the
+EIP-55 checksummed address with a lowercase `0x`, the same string it signs as `from` and sends as the
+envelope `address` (the hub stores that address, `snapshot-sequencer/src/writer/vote.ts:107`).
+
+**Vote id = EIP-712 digest:** `golden/digest_manual.sh` over the §8 vote message (`golden/live_vote_message.json`)
+prints `0xd74075ee566b3ee70e6fa9db10c4b491fe814549e1f5e3507a32f03b63c9a657`, the id above, as expected from
+`ingestor.ts:119` → snapshot.js `src/verify/evm.ts:17-20` (`_TypedDataEncoder.hash`).
