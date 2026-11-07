@@ -130,3 +130,13 @@ ceremony on the first signing attempt.
 On this triad, Signer refused an approval with `APPROVAL_EXPIRED` about 90 s
 before its `expiry_ms`. Approve promptly, and retry immediately after
 approving.
+
+## 5. Once enrolled, every new build must go through dev-cycle.sh, even read-only ones
+
+Observed 2026-11-07 on the developer triad: after `scripts/dev-cycle.sh`
+enrolled installer provenance for a `ballot` hash, `bloom petals install .`
+of a later build (adding only HTTP read routes) failed with
+`Petal ballot successor release information is missing from the loaded
+installer catalog`. The installed build is unchanged. Any new hash therefore
+needs `bash scripts/dev-cycle.sh` (run by the human: enroll, restart the
+triad, install), not just `bloom petals build . && bloom petals install .`.

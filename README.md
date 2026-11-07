@@ -3,9 +3,14 @@
 A Bloom Petal that lets an agent read Snapshot (DAO governance) proposals and
 cast gasless EIP-712 votes that Bloom signs only after the owner approves.
 
-**Work in progress.** This milestone ships only a static skeleton
-(`status.json` and the `testnet/` and `mainnet/` network directories). It
-makes no network requests and does not sign.
+**Work in progress.** Proposal reads work on both networks:
+`<network>/spaces/<space>/proposals.json` lists a space's active and recent
+proposals, and `<network>/proposals/<id>.json` returns one proposal, both
+read-only from the Snapshot hub's GraphQL endpoint. Voting is not wired up
+yet: the only signing route is the temporary `hello-sign.json` pipeline
+proof, and nothing is sent to a Snapshot sequencer. The Snapshot testnet kit
+(findings, golden vector, recorded responses, space scripts) is in
+`docs/snapshot-testnet/`.
 
 Build and validate:
 
