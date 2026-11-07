@@ -95,6 +95,16 @@ impl KvStore for SdkHost<'_> {
         }
     }
 
+    fn store_del(&mut self, key: &str) -> Result<(), String> {
+        if key.starts_with("creds/") {
+            return Err("state deletes must not use creds/ keys".into());
+        }
+        match petal::sdk::store_del(key) {
+            Ok(()) | Err(petal::SdkError::Host(petal::HostStatus::NotFound)) => Ok(()),
+            Err(error) => Err(message(&error)),
+        }
+    }
+
     fn store_list(&mut self, prefix: &str, max_bytes: usize) -> Result<Vec<String>, String> {
         petal::sdk::store_list(prefix, max_bytes).map_err(|error| message(&error))
     }

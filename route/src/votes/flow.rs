@@ -14,6 +14,7 @@
 use serde_json::{Value, json};
 
 use crate::Network;
+use crate::mandate::Mandate;
 use crate::hub::HubError;
 use crate::proposals::{HubProposal, vote_type_supported, voting_open};
 use crate::snapshot::{self, Vote};
@@ -93,10 +94,19 @@ impl Step {
     }
 }
 
-/// The mandate hook (Monday): policy checks between the hub checks and the
-/// binding. A refusal is `(reason_code, detail)`. Today every vote passes.
-pub fn mandate_check(_body: &VoteBody, _facts: &ProposalFacts) -> Result<(), (&'static str, String)> {
-    Ok(())
+/// The mandate's post-hub checks (docs/plan-mandate-inbox.md): blocked
+/// keyword in the proposal's title or body, required reason, rolling daily
+/// limit. A refusal is `(reason_code, detail)`. No mandate: every vote passes.
+pub fn mandate_check(
+    mandate: Option<&Mandate>,
+    body: &VoteBody,
+    proposal: &HubProposal,
+    recent_votes: u32,
+) -> Result<(), (&'static str, String)> {
+    match mandate {
+        Some(mandate) => mandate.check_draft(&proposal.title, &proposal.body, &body.reason, recent_votes),
+        None => Ok(()),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +221,15 @@ fn draft<H: VoteHost>(host: &mut H, scope: &Scope, body: &VoteBody, now_ms: u64)
             now_ms,
         );
     }
+    // The owner's (advisory) mandate, read once. Its space rule is checked
+    // before any hub call.
+    let mandate = match crate::mandate::load(host, scope) {
+        Ok(mandate) => mandate,
+        Err(error) => return transient(format!("could not read the mandate: {error}; retry the same write"), false),
+    };
+    if let Some(Err((code, detail))) = mandate.as_ref().map(|mandate| mandate.check_space(&body.space)) {
+        return refuse(host, scope, body, code, detail, now_ms);
+    }
     let now = now_ms / 1000;
     let proposal = match host.hub_proposal(network, &body.proposal) {
         Ok(proposal) => proposal,
@@ -258,7 +277,15 @@ fn draft<H: VoteHost>(host: &mut H, scope: &Scope, body: &VoteBody, now_ms: u64)
         end: proposal.end,
         snapshot: proposal.snapshot.clone(),
     };
-    if let Err((code, detail)) = mandate_check(body, &facts) {
+    let recent_votes = if mandate.as_ref().is_some_and(|mandate| mandate.max_votes_per_day.is_some()) {
+        match crate::mandate::recent_vote_count(host, scope, now_ms) {
+            Ok(count) => count,
+            Err(error) => return transient(format!("could not count recent votes: {error}; retry the same write"), false),
+        }
+    } else {
+        0
+    };
+    if let Err((code, detail)) = mandate_check(mandate.as_ref(), body, &proposal, recent_votes) {
         return refuse(host, scope, body, code, detail, now_ms);
     }
     let binding = freeze(scope, body, &from, facts, now, now_ms);

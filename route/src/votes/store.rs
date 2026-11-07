@@ -49,6 +49,16 @@ impl Scope {
         format!("{}/{}/{}", self.network.as_str(), self.wallet, self.index)
     }
 
+    /// `<network>/<wallet>/<index>`: the account part of every key.
+    pub fn account_path(&self) -> String {
+        self.base()
+    }
+
+    /// VFS directory of this account (`[network]/accounts/[wallet]/[index]`).
+    pub fn account_dir(&self) -> String {
+        format!("/petals/ballot/{}/accounts/{}/{}", self.network.as_str(), self.wallet, self.index)
+    }
+
     /// Prefix of every vote key of this account (for listing).
     pub fn votes_prefix(&self) -> String {
         format!("votes/{}/", self.base())
@@ -78,12 +88,7 @@ impl Scope {
 
     /// VFS directory of this account's votes.
     pub fn votes_dir(&self) -> String {
-        format!(
-            "/petals/ballot/{}/accounts/{}/{}/votes",
-            self.network.as_str(),
-            self.wallet,
-            self.index
-        )
+        format!("{}/votes", self.account_dir())
     }
 
     /// Vote ids named by a listing of [`Scope::votes_prefix`]: every
@@ -131,6 +136,8 @@ pub trait KvStore {
     fn store_put(&mut self, key: &str, value: &[u8]) -> Result<(), String>;
     fn store_put_new(&mut self, key: &str, value: &[u8]) -> Result<PutNew, String>;
     fn store_del_if_value(&mut self, key: &str, expected: &[u8]) -> Result<DelIfValue, String>;
+    /// Delete a state key; deleting a missing key succeeds.
+    fn store_del(&mut self, key: &str) -> Result<(), String>;
     fn store_list(&mut self, prefix: &str, max_bytes: usize) -> Result<Vec<String>, String>;
     fn secret_put(&mut self, key: &str, value: &[u8]) -> Result<(), String>;
     fn secret_get(&mut self, key: &str, max_bytes: usize) -> Result<Option<Vec<u8>>, String>;
@@ -290,6 +297,12 @@ pub(crate) mod fake {
                     Ok(DelIfValue::Deleted)
                 }
             }
+        }
+        fn store_del(&mut self, key: &str) -> Result<(), String> {
+            assert!(!key.starts_with("creds/"));
+            self.mutate()?;
+            self.state.remove(key);
+            Ok(())
         }
         fn store_list(&mut self, prefix: &str, _max_bytes: usize) -> Result<Vec<String>, String> {
             Ok(self.state.keys().filter(|key| key.starts_with(prefix)).cloned().collect())

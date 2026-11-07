@@ -161,6 +161,9 @@ impl KvStore for FakeHost {
     fn store_del_if_value(&mut self, key: &str, expected: &[u8]) -> Result<DelIfValue, String> {
         self.store.store_del_if_value(key, expected)
     }
+    fn store_del(&mut self, key: &str) -> Result<(), String> {
+        self.store.store_del(key)
+    }
     fn store_list(&mut self, prefix: &str, max: usize) -> Result<Vec<String>, String> {
         self.store.store_list(prefix, max)
     }
@@ -915,4 +918,106 @@ fn refused_records_read_without_typed_data_and_list_with_bound_ones() {
     assert_eq!(list_vote_ids(&mut host, &scope()).unwrap(), ["bad-choice", "demo-1"]);
     let other = Scope::new(Network::Testnet, "main", 1);
     assert!(list_vote_ids(&mut host, &other).unwrap().is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Mandate enforcement (docs/plan-mandate-inbox.md)
+// ---------------------------------------------------------------------------
+
+fn set_mandate(host: &mut FakeHost, json: &str) {
+    let (code, message) = crate::mandate::write(host, &scope(), Some(NOW_MS), json.as_bytes());
+    assert_eq!(code, 0, "{message}");
+}
+
+const LIVE_MANDATE: &str = r#"{"spaces":["bloom-ballot-182c.eth"],"blocked_keywords":["treasury transfer"],"require_reason":true,"max_votes_per_day":5}"#;
+
+#[test]
+fn mandate_space_is_refused_before_any_hub_call() {
+    let mut host = FakeHost::new();
+    set_mandate(&mut host, LIVE_MANDATE);
+    let mut value: Value = serde_json::from_slice(&demo("other")).unwrap();
+    value["space"] = json!("ens.eth");
+    let r = refused(&mut host, &serde_json::to_vec(&value).unwrap(), "mandate_space_not_allowed");
+    assert!(host.calls.is_empty(), "no hub call, no address read");
+    assert!(r.detail.unwrap().contains("\"ens.eth\""));
+}
+
+#[test]
+fn mandate_blocked_keyword_is_refused_after_the_hub_checks_without_a_ceremony() {
+    let mut host = FakeHost::new();
+    set_mandate(&mut host, LIVE_MANDATE);
+    let mut treasury = proposal(P, "active", "single-choice", START, END);
+    treasury.title = "Treasury transfer to grants multisig".into();
+    host.proposal = Ok(Some(treasury));
+    let r = refused(&mut host, &demo("treasury-1"), "mandate_blocked_keyword");
+    assert_eq!(host.external_calls(), ["hub.proposal", "vfs.address", "hub.vp"]);
+    assert_eq!(r.detail.as_deref(), Some("the proposal's title contains the blocked keyword \"treasury transfer\""));
+    // The keyword in the body counts too (case-insensitive).
+    let mut host = FakeHost::new();
+    set_mandate(&mut host, LIVE_MANDATE);
+    let mut p = proposal(P, "active", "single-choice", START, END);
+    p.body = "This moves funds: a TREASURY Transfer.".into();
+    host.proposal = Ok(Some(p));
+    refused(&mut host, &demo("body-1"), "mandate_blocked_keyword");
+}
+
+#[test]
+fn mandate_reason_required_refuses_an_empty_reason() {
+    let mut host = FakeHost::new();
+    set_mandate(&mut host, LIVE_MANDATE);
+    refused(&mut host, &body("no-reason", P, 1, None), "mandate_reason_required");
+    refused(&mut host, &body("empty-reason", P, 1, Some("")), "mandate_reason_required");
+}
+
+#[test]
+fn mandate_daily_limit_is_a_rolling_day_over_bound_votes() {
+    let mut host = FakeHost::new();
+    host.default_sign = Some(SignScript::Pending(EXACT_ID, u64::MAX));
+    set_mandate(&mut host, r#"{"max_votes_per_day":2}"#);
+    // Refusals do not count toward the limit.
+    refused(&mut host, &body("bad", P, 9, None), "choice_out_of_range");
+    assert_eq!(send(&mut host, &demo("a")).outcome, "approval_pending");
+    host.now = Some(NOW_MS + 1_000);
+    assert_eq!(send(&mut host, &demo("b")).outcome, "approval_pending");
+    host.now = Some(NOW_MS + 2_000);
+    let r = refused(&mut host, &demo("c"), "mandate_daily_limit");
+    assert!(r.detail.unwrap().starts_with("2 votes drafted in the last 24 hours"));
+    // Bound votes still resume: the limit applies to new vote_ids only.
+    assert_eq!(send(&mut host, &demo("a")).outcome, "approval_pending");
+    // 24 h after "a" was drafted, one slot is free again.
+    host.now = Some(NOW_MS + crate::mandate::DAY_MS);
+    assert_eq!(send(&mut host, &demo("c")).outcome, "approval_pending", "a refused id is reusable");
+}
+
+#[test]
+fn a_bound_vote_is_never_rechecked_against_a_new_mandate() {
+    let mut host = FakeHost::new();
+    host.default_sign = Some(SignScript::Pending(EXACT_ID, NOW_MS + 300_000));
+    assert_eq!(send(&mut host, &demo("kept")).outcome, "approval_pending");
+    set_mandate(&mut host, r#"{"spaces":["ens.eth"],"blocked_keywords":["ballot"],"require_reason":true,"max_votes_per_day":1}"#);
+    let again = send(&mut host, &demo("kept"));
+    assert_eq!(again.outcome, "approval_pending");
+    assert_eq!(host.external_calls(), ["sign"]);
+    // A new vote_id is checked.
+    refused(&mut host, &demo("new-one"), "mandate_space_not_allowed");
+}
+
+#[test]
+fn an_empty_space_list_allows_any_space_and_a_cleared_mandate_allows_everything() {
+    let mut host = FakeHost::new();
+    host.default_sign = Some(SignScript::Pending(EXACT_ID, NOW_MS + 300_000));
+    set_mandate(&mut host, r#"{"require_reason":true}"#);
+    refused(&mut host, &body("r", P, 1, None), "mandate_reason_required");
+    set_mandate(&mut host, "{}");
+    assert_eq!(send(&mut host, &body("r", P, 1, None)).outcome, "approval_pending", "cleared: the refused id binds");
+}
+
+#[test]
+fn an_unreadable_mandate_is_transient_and_binds_nothing() {
+    let mut host = FakeHost::new();
+    host.store.state.insert(crate::mandate::mandate_key(&scope()), b"{".to_vec());
+    let out = send(&mut host, &demo("m"));
+    assert_eq!((out.code, out.outcome), (-4, "transient_error"));
+    assert!(host.calls.is_empty());
+    assert!(binding(&mut host, "m").is_none());
 }
