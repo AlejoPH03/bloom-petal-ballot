@@ -5,6 +5,6 @@ petal::route_file!(
     ctx_list: |ctx: &petal::Ctx| -> Result<Vec<petal::RouteChild>, petal::DispatchResponse> {
         let value = petal::param(ctx, "network")?;
         crate::Network::parse(value).map_err(|error| petal::error(-1, error.message()))?;
-        Ok(vec![petal::dir("accounts")])
+        Ok(vec![petal::dir("spaces"), petal::dir("proposals"), petal::dir("accounts")])
     },
 );
