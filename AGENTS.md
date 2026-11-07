@@ -15,9 +15,9 @@ signing route is the temporary Step 1 `hello-sign.json`.
 | `/petals/ballot/<network>/` | dir | `network` = `testnet` \| `mainnet` | lists `spaces/`, `proposals/`, `accounts/`; any other name is `not found` | — | none |
 | `/petals/ballot/<network>/spaces/` | dir | `network` | empty: spaces are reached by exact path (below) | — | none |
 | `/petals/ballot/<network>/spaces/<space>/` | dir | `space` = Snapshot space id, `[a-z0-9-]+(\.[a-z0-9-]+)+`, ≤ 64 bytes | lists `proposals.json`; an invalid id is `invalid` | — | none |
-| `/petals/ballot/<network>/spaces/<space>/proposals.json` | file, cached 30 s | `network`, `space` | `{network, space, fetched_at, proposals: [...]}`: the space's active proposals plus its 10 most recent, each once, newest first. Each has `id`, `title`, `type`, `choices` (`[{number, label}]`, 1-based), `start`, `end`, `state`, `scores_total`, `ballot_can_vote`. An unknown space gives an empty list | — | `bloom:http` |
+| `/petals/ballot/<network>/spaces/<space>/proposals.json` | file, cached 30 s | `network`, `space` | `{network, space, fetched_at, proposals: [...]}`: the space's active proposals plus its 10 most recent, each once, newest first. Each has `id`, `title`, `type`, `choices` (`[{number, label}]`, 1-based), `start`, `end`, `state`, `scores_total`, `vote_type_supported`, `voting_open`. An unknown space gives an empty list | — | `bloom:http` |
 | `/petals/ballot/<network>/proposals/` | dir | `network` | empty: proposals are reached by exact path (below) | — | none |
-| `/petals/ballot/<network>/proposals/<id>.json` | file, cached 30 s | `proposal` = `0x` + 64 lowercase hex | `network`, `fetched_at`, `id`, `space`, `author`, `title`, `body` (first 8192 bytes, cut on a UTF-8 boundary), `truncated`, `choices`, `type`, `start`, `end`, `snapshot`, `state`, `scores`, `scores_total`, `votes`, `ballot_can_vote`. Unknown id is `not found` | — | `bloom:http` |
+| `/petals/ballot/<network>/proposals/<id>.json` | file, cached 30 s | `proposal` = `0x` + 64 lowercase hex | `network`, `fetched_at`, `id`, `space`, `author`, `title`, `body` (first 8192 bytes, cut on a UTF-8 boundary), `truncated`, `choices`, `type`, `start`, `end`, `snapshot`, `state`, `scores`, `scores_total`, `votes`, `vote_type_supported`, `voting_open`. Unknown id is `not found` | — | `bloom:http` |
 | `/petals/ballot/<network>/accounts/` | dir | `network` | wallets (listed by Bloom) | — | none |
 | `/petals/ballot/<network>/accounts/<wallet>/` | dir | `wallet` (Bloom wallet id) | numbered accounts (listed by Bloom) | — | none |
 | `/petals/ballot/<network>/accounts/<wallet>/<n>/` | dir | `wallet`, `index` | lists `hello-sign.json` | — | none |
@@ -36,9 +36,10 @@ bloom vfs cat /petals/ballot/testnet/spaces/bloom-ballot-182c.eth/proposals.json
 bloom vfs cat /petals/ballot/testnet/proposals/0x5fa4f371c47a9691128eaa0bc079abed859f73b9f2e0afb453ff5a7d5b752607.json
 ```
 
-`ballot_can_vote` is true only for `single-choice` and `basic` proposals,
-the types whose vote is one numbered `choice`; it does not check the voting
-window or voting power. Times (`start`, `end`) are always the hub's own
+`vote_type_supported` is true only for `single-choice` and `basic` proposals,
+the types whose vote is one numbered `choice`. `voting_open` is true when the
+hub says `active` and the read time (`fetched_at`) is before `end`; it can be
+up to 30 s stale (the read cache) and does not check voting power. Times (`start`, `end`) are always the hub's own
 values. Hub failures (GraphQL errors, bad status, a response over 512 KiB for
 a listing or 256 KiB for a proposal) are `backend` errors with a short,
 sanitized message. Both reads POST only to the network's fixed hub endpoint

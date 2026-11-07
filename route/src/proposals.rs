@@ -38,9 +38,17 @@ pub fn proposal_query(id: &str) -> Result<HubQuery, ValidationError> {
 }
 
 /// Voting types ballot can sign: `voteTypes` with a single `uint32` choice
-/// (FINDINGS.md §2). The hub still enforces the voting window.
-pub fn ballot_can_vote(kind: &str) -> bool {
+/// (FINDINGS.md §2). The other types sign `uint32[]` or a JSON string.
+pub fn vote_type_supported(kind: &str) -> bool {
     matches!(kind, "single-choice" | "basic")
+}
+
+/// Whether a vote may be cast now: the hub says `active` and `now` (seconds)
+/// is before the hub's `end`. Unknown time (`None`) is never open. Shared by
+/// the read routes and the vote write's pre-signing checks; the sequencer
+/// enforces the window itself (snapshot-sequencer `writer/vote.ts:30-38`).
+pub fn voting_open(state: &str, end: u64, now: Option<u64>) -> bool {
+    state == "active" && now.is_some_and(|now| now < end)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -99,13 +107,15 @@ pub struct ProposalSummary {
     pub end: u64,
     pub state: String,
     pub scores_total: Option<f64>,
-    pub ballot_can_vote: bool,
+    pub vote_type_supported: bool,
+    pub voting_open: bool,
 }
 
-impl From<HubSummary> for ProposalSummary {
-    fn from(raw: HubSummary) -> Self {
+impl ProposalSummary {
+    fn project(raw: HubSummary, now: Option<u64>) -> Self {
         Self {
-            ballot_can_vote: ballot_can_vote(&raw.kind),
+            vote_type_supported: vote_type_supported(&raw.kind),
+            voting_open: voting_open(&raw.state, raw.end, now),
             choices: number_choices(&raw.choices),
             id: raw.id,
             title: raw.title,
@@ -120,7 +130,7 @@ impl From<HubSummary> for ProposalSummary {
 
 /// Active proposals plus recent ones, each id once, newest first (by
 /// `created`, falling back to `start`; ties by id for a stable order).
-pub fn merge_proposals(active: Vec<HubSummary>, recent: Vec<HubSummary>) -> Vec<ProposalSummary> {
+pub fn merge_proposals(active: Vec<HubSummary>, recent: Vec<HubSummary>, now: Option<u64>) -> Vec<ProposalSummary> {
     let mut seen = HashSet::new();
     let mut merged: Vec<HubSummary> = active
         .into_iter()
@@ -131,7 +141,7 @@ pub fn merge_proposals(active: Vec<HubSummary>, recent: Vec<HubSummary>) -> Vec<
         let key = |p: &HubSummary| p.created.unwrap_or(p.start);
         key(b).cmp(&key(a)).then_with(|| a.id.cmp(&b.id))
     });
-    merged.into_iter().map(ProposalSummary::from).collect()
+    merged.into_iter().map(|raw| ProposalSummary::project(raw, now)).collect()
 }
 
 /// The `proposals.json` document.
@@ -140,7 +150,7 @@ pub fn proposals_document(network: Network, space: &str, data: ProposalsData, fe
         "network": network.as_str(),
         "space": space,
         "fetched_at": fetched_at,
-        "proposals": merge_proposals(data.active, data.recent),
+        "proposals": merge_proposals(data.active, data.recent, fetched_at),
     })
 }
 
@@ -207,7 +217,8 @@ pub struct ProposalDetail {
     pub scores: Vec<f64>,
     pub scores_total: Option<f64>,
     pub votes: Option<u64>,
-    pub ballot_can_vote: bool,
+    pub vote_type_supported: bool,
+    pub voting_open: bool,
 }
 
 pub fn project_proposal(network: Network, raw: HubProposal, fetched_at: Option<u64>) -> ProposalDetail {
@@ -219,7 +230,8 @@ pub fn project_proposal(network: Network, raw: HubProposal, fetched_at: Option<u
         body: body.to_owned(),
         truncated,
         choices: number_choices(&raw.choices),
-        ballot_can_vote: ballot_can_vote(&raw.kind),
+        vote_type_supported: vote_type_supported(&raw.kind),
+        voting_open: voting_open(&raw.state, raw.end, fetched_at),
         space: raw.space.map(|space| space.id),
         id: raw.id,
         author: raw.author,
@@ -247,6 +259,7 @@ mod tests {
     }
 
     const DEMO_ID: &str = "0x5fa4f371c47a9691128eaa0bc079abed859f73b9f2e0afb453ff5a7d5b752607";
+    const CLOSED_ID: &str = "0xb2a3f2fba4445f4672c2b2151ba32675ca5e3144f22910205ea1b159300425f2";
 
     #[test]
     fn query_texts_are_the_recorded_ones() {
@@ -281,11 +294,22 @@ mod tests {
     }
 
     #[test]
-    fn ballot_can_vote_only_for_single_uint_choice_types() {
-        assert!(ballot_can_vote("single-choice"));
-        assert!(ballot_can_vote("basic"));
+    fn vote_type_supported_only_for_single_uint_choice_types() {
+        assert!(vote_type_supported("single-choice"));
+        assert!(vote_type_supported("basic"));
         for kind in ["approval", "ranked-choice", "quadratic", "weighted", "shutter", "", "Basic"] {
-            assert!(!ballot_can_vote(kind), "{kind}");
+            assert!(!vote_type_supported(kind), "{kind}");
+        }
+    }
+
+    #[test]
+    fn voting_open_needs_active_state_and_now_before_end() {
+        assert!(voting_open("active", 100, Some(99)));
+        assert!(!voting_open("active", 100, Some(100)), "end is exclusive");
+        assert!(!voting_open("active", 100, Some(101)));
+        assert!(!voting_open("active", 100, None), "unknown time is never open");
+        for state in ["closed", "pending", "", "Active"] {
+            assert!(!voting_open(state, 100, Some(1)), "{state}");
         }
     }
 
@@ -302,6 +326,7 @@ mod tests {
         let data: ProposalsData =
             parse_response(200, recorded!("ballot_proposals_testnet.json"), MAX_PROPOSALS_RESPONSE_BYTES).unwrap();
         assert_eq!((data.active.len(), data.recent.len()), (3, 4));
+        // 1_794_000_000 is before every active end in the recording.
         let doc = proposals_document(Network::Testnet, "bloom-ballot-182c.eth", data, Some(1_794_000_000));
         assert_eq!(doc["network"], "testnet");
         assert_eq!(doc["space"], "bloom-ballot-182c.eth");
@@ -317,14 +342,26 @@ mod tests {
         assert_eq!(demo["type"], "single-choice");
         assert_eq!(demo["state"], "active");
         assert_eq!(demo["start"], 1_793_989_313_u64);
-        assert_eq!(demo["ballot_can_vote"], true);
+        assert_eq!(demo["vote_type_supported"], true);
+        assert_eq!(demo["voting_open"], true);
         assert_eq!(demo["choices"], json!([
             {"number": 1, "label": "For"}, {"number": 2, "label": "Against"}, {"number": 3, "label": "Abstain"}
         ]));
         assert_eq!(proposals[0]["state"], "closed");
+        assert_eq!(proposals[0]["id"], CLOSED_ID);
+        assert_eq!(proposals[0]["vote_type_supported"], true);
+        assert_eq!(proposals[0]["voting_open"], false);
         assert_eq!(proposals[3]["scores_total"], 1.0);
+        assert_eq!(proposals[3]["voting_open"], true);
         let keys: Vec<&String> = demo.as_object().unwrap().keys().collect();
-        assert_eq!(keys.len(), 9, "{keys:?}");
+        assert_eq!(keys.len(), 10, "{keys:?}");
+        // After the active proposals end nothing is open; without a clock nothing is.
+        let data: ProposalsData =
+            parse_response(200, recorded!("ballot_proposals_testnet.json"), MAX_PROPOSALS_RESPONSE_BYTES).unwrap();
+        let later = merge_proposals(data.active.clone(), data.recent.clone(), Some(1_794_594_112));
+        assert!(later.iter().all(|p| !p.voting_open));
+        let unknown = merge_proposals(data.active, data.recent, None);
+        assert!(unknown.iter().all(|p| !p.voting_open));
     }
 
     #[test]
@@ -334,10 +371,10 @@ mod tests {
         let newest = data.recent[0].id.clone();
         let created: Vec<u64> = data.recent.iter().map(|p| p.created.unwrap()).collect();
         assert!(created.windows(2).all(|w| w[0] >= w[1]), "the hub orders recent by created desc");
-        let merged = merge_proposals(data.active, data.recent);
+        let merged = merge_proposals(data.active, data.recent, None);
         assert_eq!(merged.len(), 10, "the one active proposal is also among the 10 recent");
         assert_eq!(merged[0].id, newest);
-        assert!(merged.iter().filter(|p| p.kind == "basic").all(|p| p.ballot_can_vote));
+        assert!(merged.iter().filter(|p| p.kind == "basic").all(|p| p.vote_type_supported));
     }
 
     #[test]
@@ -352,18 +389,18 @@ mod tests {
         assert!(active.proposals.is_empty());
         let mut doubled = recent.proposals.clone();
         doubled.extend(recent.proposals.clone());
-        let merged = merge_proposals(doubled, recent.proposals);
+        let merged = merge_proposals(doubled, recent.proposals, None);
         assert_eq!(merged.len(), 5);
         assert!(merged.windows(2).all(|w| w[0].start >= w[1].start), "newest first by start");
         assert_eq!(merged[0].kind, "basic");
-        assert!(merged.iter().all(|p| p.ballot_can_vote && p.choices.is_empty()));
+        assert!(merged.iter().all(|p| p.vote_type_supported && p.choices.is_empty()));
     }
 
     #[test]
     fn testnet_proposal_projects_every_field() {
         let data: ProposalData =
             parse_response(200, recorded!("ballot_proposal_testnet.json"), MAX_PROPOSAL_RESPONSE_BYTES).unwrap();
-        let detail = project_proposal(Network::Testnet, data.proposal.unwrap(), Some(5));
+        let detail = project_proposal(Network::Testnet, data.proposal.unwrap(), Some(1_794_000_000));
         assert_eq!(detail.id, DEMO_ID);
         assert_eq!(detail.space.as_deref(), Some("bloom-ballot-182c.eth"));
         assert_eq!(detail.author, "0x042abe4EE65cBC71Bd11297DCea2d69e1650a596");
@@ -378,10 +415,11 @@ mod tests {
         assert!(detail.scores.is_empty());
         assert_eq!(detail.scores_total, Some(0.0));
         assert_eq!(detail.votes, Some(0));
-        assert!(detail.ballot_can_vote);
+        assert!(detail.vote_type_supported);
+        assert!(detail.voting_open);
         let doc = serde_json::to_value(&detail).unwrap();
         for key in ["network", "fetched_at", "id", "space", "author", "title", "body", "truncated", "choices",
-                    "type", "start", "end", "snapshot", "state", "scores", "scores_total", "votes", "ballot_can_vote"] {
+                    "type", "start", "end", "snapshot", "state", "scores", "scores_total", "votes", "vote_type_supported", "voting_open"] {
             assert!(doc.get(key).is_some(), "missing {key}");
         }
         assert_eq!(doc["network"], "testnet");
@@ -399,7 +437,8 @@ mod tests {
         assert!(detail.body.len() <= BODY_MAX_BYTES && detail.body.len() > BODY_MAX_BYTES - 4);
         assert!(full.starts_with(&detail.body));
         assert_eq!(detail.kind, "basic");
-        assert!(detail.ballot_can_vote);
+        assert!(detail.vote_type_supported);
+        assert!(!detail.voting_open, "no clock was passed");
         assert_eq!(detail.scores.len(), 3);
         assert_eq!(detail.votes, Some(62));
     }
