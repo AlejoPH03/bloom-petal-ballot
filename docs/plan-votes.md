@@ -1,7 +1,16 @@
 # Plan: the vote flow (`votes/new.json`, `votes/[vote_id].json`)
 
-**Status: PLAN (2026-11-07), implementation 2026-11-08.** Nothing here is
-implemented. Every claim cites a file:line at these revisions:
+**Status: IMPLEMENTED (2026-11-07)**, host-tested, built, checked and
+installed for reads; the live acceptance (§12) is the human's next step.
+Approved with these decisions (2026-11-07): reserve vote_id `new`; `counted`
+= hub vote id == digest and the same choice; identity on normalised fields
+(`reason` absent ≡ `""`); `signed` is durable (signature only under
+`creds/…` in `secrets`); `approval_expired` is inferred and the record says
+so (`inferred: true`, detail starts with `inferred:`); mainnet writes refused
+with `mainnet_disabled` before any external call and **no mainnet sequencer
+table**; acceptance on the "bloom-ballot test" proposal. Deviations found
+while implementing are listed in "Implementation notes" at the end. Every
+claim cites a file:line at these revisions:
 
 | Source | Revision | Path |
 | --- | --- | --- |
@@ -268,7 +277,8 @@ parameters must not declare a capability it does not import (SKILL.md:250-263),
 so `store_dir_spec`'s `vfs.read` and `account_read_spec`'s `vfs.read` are
 removed. Confirm each with `wasm-tools component wit` after `petal build`.
 
-**`petal.toml` diff** (`[caps]` and `[sign]` unchanged):
+**`petal.toml` diff** (`[caps]` and `[sign]` unchanged; as approved, no
+mainnet sequencer table — README "Enabling mainnet votes"):
 
 ```diff
 -# Snapshot hub GraphQL, one table per network (route/src/lib.rs
@@ -284,12 +294,6 @@ removed. Confirm each with `wasm-tools component wit` after `petal build`.
 +[[net.allow]]
 +binding = "testnet-sequencer"
 +host = "testnet.seq.snapshot.org"
-+methods = ["post"]
-+paths = ["/"]
-+
-+[[net.allow]]
-+binding = "mainnet-sequencer"
-+host = "seq.snapshot.org"
 +methods = ["post"]
 +paths = ["/"]
 +
@@ -437,33 +441,48 @@ proposal and the Bloom account `0x0c056ae661D3d3f87919eCb9733527509D392751`.
 
 ### Live acceptance (you run it; testnet only)
 
-`V=/petals/ballot/testnet/accounts/main/0/votes`,
-`D1='{"vote_id":"demo-1","space":"bloom-ballot-182c.eth","proposal":"0x5fa4f371c47a9691128eaa0bc079abed859f73b9f2e0afb453ff5a7d5b752607","choice":1,"reason":"ballot acceptance"}'`.
-Must finish before 2026-11-13T18:21:52Z (demo `end`).
+On the "bloom-ballot test" proposal (`0x8ef55d41…4b00`, single-choice
+For/Against/Abstain, ends 1794593689 = **2026-11-13T18:14:49Z**); the demo
+proposal `0x5fa4…2607` is reserved for the video. The Bloom account
+`0x0c056ae661D3d3f87919eCb9733527509D392751` has vp 1 there and no vote yet
+(`responses/ballot_vp_testnet.json`, `ballot_votes_testnet_empty.json`).
+
+```sh
+source /tmp/bloom-triad-logs/triad.env
+V=/petals/ballot/testnet/accounts/main/0/votes
+P=0x8ef55d4139e0c94f83b25aea7d4a7d573092eef7da4bc8ec8a54faab9d644b00
+A1='{"vote_id":"accept-1","space":"bloom-ballot-182c.eth","proposal":"'$P'","choice":1,"reason":"ballot acceptance"}'
+M() { bloom vfs cat $V/new.json | jq -c '.last_write | {outcome, code, vote_id, record, message}'; }
+```
+
+Run `M` after every write: it is the read-after-write check (the marker).
 
 | # | Action | Expected |
 | --- | --- | --- |
-| 0 | `bash scripts/dev-cycle.sh` | tests, build, check, imports as §7, enroll, (restart), install; three hashes equal |
-| 1 | `bloom vfs ls $V`; `bloom vfs cat $V/new.json` | only `new.json`; schema/rules; `last_write: null` |
-| 2 | N1 closed: `vote_id:"closed-1"`, proposal `0xb2a3f2fb…25f2`, choice 1 | `-3 refused: proposal_not_active`; `closed-1.json` status `refused`; no ceremony |
-| 3 | N2 choice 4 on demo, `vote_id:"bad-choice"` | `-3 refused: choice_out_of_range` |
-| 4 | N5 reuse `closed-1` with demo proposal, choice 9 | `-3 refused: choice_out_of_range` (refused id is unbound; not a conflict) |
-| 5 | N6 body with an extra field | `-3`; marker `invalid_body`; no record |
-| 6 | `bloom vfs write $V/new.json --data "$D1"` | `-3 approval pending (<op>)`; `demo-1.json` `awaiting_approval`, `typed_data`, `digest` D; `/wallets/main/policy-updates/pending/<op>` exists |
-| 7 | Owner approves the policy update | ceremony succeeds |
-| 8 | same write | `-3 approval pending (<request_id>)`, a new 64-hex id |
-| 9 | N4 early retry: same write again before approving | same `<request_id>`; no new ceremony |
-| 10 | Run `verify` from `demo-1.json` | `out.hex` = D |
+| 0 | `bash scripts/dev-cycle.sh` | tests, build, check, imports as §7, enroll, (restart), install; "OK: enrolled == built == installed" |
+| 1 | `bloom vfs ls $V`; `bloom vfs cat $V/new.json \| jq '{schema, last_write}'` | only `new.json`; `ballot.votes-new.v1`, `last_write: null` |
+| 2 | N1 closed: `bloom vfs write $V/new.json --data '{"vote_id":"closed-1","space":"bloom-ballot-182c.eth","proposal":"0xb2a3f2fba4445f4672c2b2151ba32675ca5e3144f22910205ea1b159300425f2","choice":1}'`; `M` | `-3 refused: proposal_not_active: the proposal is "closed", not active`; marker `refused`, `record: votes/closed-1.json`; no ceremony |
+| 3 | N2: `vote_id:"bad-choice"`, `$P`, `choice:4`; `M` | `-3 refused: choice_out_of_range: choice 4 but this proposal has 3 choices (1-3)` |
+| 4 | N5 refused id reuse: `vote_id:"closed-1"`, `$P`, `choice:9`; `M`; `bloom vfs cat $V/closed-1.json \| jq .reason_code` | `-3 refused: choice_out_of_range` (not a conflict: a refused id is unbound); `"choice_out_of_range"` |
+| 5 | N6: `A1` plus `"extra":1`; `M` | `-3 invalid body: … unknown field`; marker `invalid_body`, `record: null`; no `accept-1.json` |
+| 6 | `bloom vfs write $V/new.json --data "$A1"`; `M` | `-3 approval pending (<op>)` (the policy update for the new hash); `accept-1.json`: `awaiting_approval`, `typed_data`, `digest` D, `summary.choice_label "For"`; `/wallets/main/policy-updates/pending/<op>` exists |
+| 7 | Owner approves the policy update (ceremony from `…/<op>/approval_challenge.json`) | ceremony succeeds |
+| 8 | same write; `M` | `-3 approval pending (<request_id>)`, a different 64-hex id; `approval.pending.action_id` = it |
+| 9 | N4 early retry: same write again before approving; `M` | the same `<request_id>`; no new ceremony |
+| 10 | Run the two `verify.commands` from `bloom vfs cat $V/accept-1.json` | `out.hex` = D = `verify.expected_out_hex` |
 | 11 | Owner opens `/petal-signing-requests/<request_id>.json` → `ceremony_url`; checks `exact_ordered_hashes[0]` = D (no `0x`); approves within ~2 min | approved |
-| 12 | same write, immediately | exit 0; `status:"submitted"`, `receipt.id` = D; marker `submitted`; no signature bytes anywhere |
-| 13 | `bloom vfs cat $V/demo-1.json` | `live.counted: true`, `hub_vote.id` = D, choice 1 |
-| 14 | same write | exit 0; `status:"counted"`; no sign request, no POST |
-| 15 | N3 `demo-1` with choice 2 | `-3 … bound to a different vote`; record unchanged |
-| 16 | `docs/snapshot-testnet/gql.sh` votes query for demo + account | one vote, id D, choice 1, app `bloom-ballot` |
-| 17 | Mount: `echo "$D1" > <mount>$V/new.json`; `cat` `new.json` | write "succeeds"; `last_write.outcome:"counted"` |
-| 18 | `bloom vfs ls $V` | `new.json`, `bad-choice.json`, `closed-1.json`, `demo-1.json` |
-| 19 | Leak check: `grep -rIoE '[0-9a-fA-F]{130}'` over repo, `artifacts/`, Machine log, every read above | only public `preimage` (132 hex from `1901…`) |
-| 20 | mainnet write of `D1` | `-3 refused: mainnet_disabled`, no external call |
+| 12 | same write, immediately; `M` | exit 0; marker `submitted`, `code 0`; `accept-1.json`: `status "submitted"`, `receipt.id` = D, `receipt.reconciled false`, `signature_sha256` present |
+| 13 | `bloom vfs cat $V/accept-1.json \| jq .live` | `checked: true`, `counted: true`, `hub_vote.id` = D, `choice 1` |
+| 14 | same write; `M` | exit 0; marker `counted`; `status "counted"`, `counted.hub_vote_id` = D; no new ceremony |
+| 15 | N3: `accept-1` with `choice:2`; `M` | `-3 vote_id accept-1 is bound to a different vote …`; `accept-1.json` unchanged |
+| 16 | `docs/snapshot-testnet/gqlv.sh docs/snapshot-testnet/responses/ballot_votes.graphql '{"proposal":"'$P'","voter":"0x0c056ae661D3d3f87919eCb9733527509D392751"}'` | one vote, `id` D, `choice 1` |
+| 17 | `bloom vfs ls $V` | `accept-1.json`, `bad-choice.json`, `closed-1.json`, `new.json` |
+| 18 | Leak check: `grep -rIoE '[0-9a-fA-F]{130}'` over the repo, `artifacts/`, Machine log, and every read above | only the public `preimage` (132 hex starting `1901`) |
+| 19 | mainnet: `bloom vfs write /petals/ballot/mainnet/accounts/main/0/votes/new.json --data "$A1"` | `-3 refused: mainnet_disabled: …`; no hub call, no ceremony |
+
+The earlier step 17 (mounted write) is dropped: there is no NFS mount in this
+setup; the marker check `M` after each `bloom vfs write` covers
+read-after-write.
 
 ## Conflicts with the spec
 
@@ -475,9 +494,8 @@ Must finish before 2026-11-13T18:21:52Z (demo `end`).
    `""`, whitespace and key order ignored); raw sha256 kept in the marker.
 4. **Mainnet.** Routes exist under `[network]`, but CLAUDE.md rule 7 forbids
    mainnet votes without authorization: refuse `mainnet_disabled` before any
-   external call. Least capability (rule 3) argues for committing the
-   `mainnet-sequencer` table only when mainnet is authorized; kept in the
-   diff because the spec asks for both.
+   external call. **Decided:** no `mainnet-sequencer` table (least
+   authority); README explains how an owner would enable mainnet.
 5. **`signed` is durable**, not just transient, so a crash between signing
    and submission is recoverable.
 6. **`expired(approval_expired)`** is inferred from a bare `Denied` plus the
@@ -487,11 +505,10 @@ Must finish before 2026-11-13T18:21:52Z (demo `end`).
    read's `superseded_hint` (hub vote for this voter/proposal with a newer
    `created` and a different id) are its inputs.
 
-## Open risks for tomorrow
+## Open risks
 
-- `vp`/`votes` queries with variables not yet recorded (argument types).
-- Hub `voter` filter case-sensitivity (we send checksummed, as stored,
-  `vote.ts:107`).
+- Resolved 2026-11-07: the `vp`/`votes` queries with variables are recorded
+  (FINDINGS.md §10), and the hub's `voter` filter ignores hex case.
 - Approval-expiry wedge (known-limitations.md §2): mitigated by a new vote_id.
 - Broker signature recovery on an identical retry (§0.4) is unverified.
 - Host clock vs sequencer: +300 s future limit.
@@ -502,11 +519,35 @@ Must finish before 2026-11-13T18:21:52Z (demo `end`).
 - `serde_json` without `preserve_order` sorts keys: harmless for `types`
   (`name` < `type`), covered by the envelope test.
 - Mount writes are async: a stale lease blocks a vote_id for up to 120 s.
-- The account votes once on the demo proposal; any second vote with a later
-  timestamp would replace it (`vote.ts:144-179`). Negative tests above never
-  reach signing.
+- The account votes once on the "bloom-ballot test" proposal; any second
+  vote with a later timestamp would replace it (`vote.ts:144-179`). The
+  negative tests above never reach signing.
 
 ## Verify (implementation day)
 
 CLAUDE.md "Verify" block, plus the §12 recordings, then the human runs
 `scripts/dev-cycle.sh` and the live table.
+
+## Implementation notes (2026-11-07)
+
+Where the code differs from, or makes precise, the text above:
+
+1. **A 7-day proposal expires by `timestamp_stale` before `end`.** The
+   sequencer accepts a timestamp at most 6 days old, and the vote's timestamp
+   is frozen at draft, so a vote drafted early must be submitted within
+   6 days − 10 min. Tests use a proposal ending within 6 days to reach
+   `proposal_closed`.
+2. **Re-sign after a lost secret checks the hub twice** (once before signing,
+   once before the re-post): harmless, and it keeps the rule "never re-post
+   without a hub check once a POST was attempted".
+3. **A mainnet refusal writes a `refused` record** (like every other
+   refusal), still before any external call.
+4. **An invalid or reserved `vote_id` in a read path is `not found` (-1)**, as
+   for any file that does not exist.
+5. **The flow's entry is `resume_or_draft`, not `dispatch`**: the
+   architecture check rejects dispatch-like names; it branches on stored
+   state, never on route identity.
+6. **`votes/<vote_id>.json` checks the hub only for `signed`, `submitted`
+   and `counted`** records (`live: null` before signing).
+7. **Hub failure during `counted` check on a write returns success with
+   marker `submitted`** (the record stays `submitted`; retry later).

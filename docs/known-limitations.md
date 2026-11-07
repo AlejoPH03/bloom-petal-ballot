@@ -84,7 +84,12 @@ Ran `git -C ~/work/bloom-broker fetch origin`. The default branch is
   passing the envelope (the `typed_data` it already builds) the way the
   upgraded SDK specifies.
 
-### Our Step 1 mitigation
+### Our mitigation (Step 1, now `votes/<vote_id>.json`)
+
+Step 1's `hello-sign.json` has been replaced by the vote flow; each
+`votes/<vote_id>.json` carries the same `typed_data`, `digest` and `verify`
+commands (session `ballot-votes`). What Step 1 showed:
+
 
 `hello-sign.json` is a **pipeline proof**. Its read exposes, all public:
 
@@ -115,8 +120,10 @@ check.
 Once Machine stores an approval id for an exact request, a retry replays it
 (`bloom-vfs/src/exact_signing.rs:484-490`, `520-530`). After that approval
 expires, nothing in this path clears it, which contradicts SKILL.md:544-545.
-This is unverified. The temporary hello route accepts `{"attempt": n}`: a new
-`n` is a new claim nonce, so it gets a new request id for the same payload.
+This is unverified. The vote flow's way out is a new `vote_id`: it freezes a
+new timestamp, so a new payload, a new derived request id and a new ceremony
+(docs/plan-votes.md §5). Step 1's `{"attempt": n}` escape hatch is gone with
+`hello-sign.json`.
 
 ## 3. Every rebuild is a new package hash
 
@@ -140,3 +147,29 @@ of a later build (adding only HTTP read routes) failed with
 installer catalog`. The installed build is unchanged. Any new hash therefore
 needs `bash scripts/dev-cycle.sh` (run by the human: enroll, restart the
 triad, install), not just `bloom petals build . && bloom petals install .`.
+
+## 6. A vote must reach Snapshot within 6 days of being drafted
+
+The vote's timestamp is frozen when the vote is drafted (so every retry signs
+the same bytes), and the sequencer refuses a timestamp more than 6 days old
+(`snapshot-sequencer/src/ingestor.ts:57-67`). A draft that is not submitted
+within 6 days − 10 minutes becomes `expired` (`timestamp_stale`), even on a
+proposal that is still open; vote again under a new `vote_id`.
+
+## 7. Signing denials are opaque, so `approval_expired` is inferred
+
+Bloom reports every signing refusal to the route as a bare denial
+(SKILL.md:515-523): missing provenance, a policy without the package hash, an
+approval that is not active, `CEREMONY_RATE_LIMITED`, an expired approval.
+Ballot records `expired` / `approval_expired` with `inferred: true` only when
+the denial comes within 120 s of the pending approval's `expires_ms` (Signer
+refuses about 90 s early, §4); any other denial leaves the vote where it was
+with `last_error`. Machine's `petal.sign_payload_denied` log line has the real
+reason.
+
+## 8. A rebuild loses in-flight votes
+
+Every build is a new package hash with an empty private store (SKILL.md:466-470),
+so records, bindings and kept signatures of the previous build are not
+visible to the next one. Do not rebuild while a vote is `awaiting_approval`
+or `signed`; a vote already `submitted` is safe on Snapshot regardless.
