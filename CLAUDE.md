@@ -33,6 +33,11 @@ gasless EIP-712 votes via `bloom:sign` with intent `snapshot.vote` (no outbox).
      and never completes or cancels ceremonies** (policy-update or signing).
    - The only other Bloom mutations allowed are `bloom petals build .` and
      `bloom petals install .` for this package, and only when asked.
+   - For changes that do not need signing, Claude Code may run
+     `bloom petals uninstall ballot` (never `--force`) followed by
+     `bloom petals build . && bloom petals install .`.
+   - `scripts/dev-cycle.sh` (enrollment + triad restart) is only for signing
+     tests, and only the human runs it.
 6. **No secrets or signature bytes in readable files, logs, test output or
    reports.** Signatures, keys and tokens live only in the store's secret
    namespace, or nowhere. Reads expose status, intent, outcome, non-secret
