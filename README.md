@@ -30,6 +30,40 @@ without moving funds.
 4. **Stay inside a mandate.** `mandate.json` holds allowed spaces, blocked keywords, a required reason and a daily limit.
 5. **Change your mind.** Write the new choice under a new `vote_id`, with a new ceremony. A newer hub vote is detected (`live.superseded_hint`), but re-voting is not a separate flow, the `superseded` status is never set in this build, and it was not run live.
 
+## Using ballot with an agent
+
+The Petal's interface is its files. An agent lists, reads and writes paths under
+`/petals/ballot`, and starts from the contract Bloom serves at
+`/petals/ballot/AGENTS.md`. There is no separate API. The commands elsewhere in
+this README are what an agent runs, or what a developer uses to test.
+[`docs/agent-setup/CLAUDE.md`](docs/agent-setup/CLAUDE.md) sets up a Claude Code
+session as a governance agent. An example, matching the
+[demo](docs/demo-script.md) (illustrative, not a transcript):
+
+> **You:** What needs my attention in governance?
+>
+> **Agent:** "Lower protocol fee to 0.2%" is open and you haven't voted. Your delegate voted For.
+>
+> **You:** Vote with my delegate on the fee proposal: For, using the suggested reason.
+>
+> **Agent:** Drafted: "Lower protocol fee to 0.2%", For, reason "Following 0x042a…a596", digest `0x…`. Bloom first needs you to add this build to the wallet's policy. The ceremony link is on your clipboard. Please open it in your browser.
+>
+> **You:** Approved.
+>
+> **Agent:** Now the signing request for this exact vote. Bloom's own tool recomputed the digest and it matches: `0x…`. Compare it with the hash on the ceremony page. The link is on your clipboard.
+>
+> **You:** Approved.
+>
+> **Agent:** Submitted. Snapshot's receipt equals the digest. It isn't counted yet.
+>
+> **You:** Is it counted?
+>
+> **Agent:** Yes. The record says `counted`, and the hub shows a vote with that id and choice.
+>
+> **You:** Also vote For on the treasury transfer, reason "fund the grants".
+>
+> **Agent:** Your mandate refused it (blocked keyword "treasury transfer"). Nothing was bound and no ceremony opened. I won't change the mandate unless you ask.
+
 ## How it works
 
 All paths are under `/petals/ballot/`. `<a>` is
@@ -89,37 +123,6 @@ sequenceDiagram
     H-->>R: vote id equals digest, same choice
     R-->>A: status counted
 ```
-
-## Using ballot with an agent
-
-An agent needs only `bloom vfs` and the contract Bloom serves at
-`/petals/ballot/AGENTS.md`. [`docs/agent-setup/CLAUDE.md`](docs/agent-setup/CLAUDE.md)
-is a ready instruction file for a Claude Code session. An illustrative
-conversation, not a transcript:
-
-> **You:** What needs my attention in governance?
->
-> **Agent:** Your delegate voted For on "Lower protocol fee to 0.2%", and you have not voted.
->
-> **You:** Follow them on it.
->
-> **Agent:** Drafted `follow-5fa4f371`. Bloom needs you to add this build to the wallet's policy first. The link is on your clipboard.
->
-> **You:** Approved.
->
-> **Agent:** The signing request is ready: For, in `bloom-ballot-182c.eth`. Bloom's own tool recomputed the digest and it matches. Compare it with the hash on the ceremony page. The link is on your clipboard.
->
-> **You:** Approved.
->
-> **Agent:** Submitted. Snapshot's receipt equals the digest. It is not counted yet.
->
-> **You:** Is it counted?
->
-> **Agent:** Yes. The record says `counted`, and the hub shows a vote with that id.
->
-> **You:** Also vote For on the treasury transfer.
->
-> **Agent:** Refused by your mandate (blocked keyword "treasury transfer"). Nothing was bound and no ceremony opened. I won't change the mandate unless you ask.
 
 ## Verify without trusting Ballot
 

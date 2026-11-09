@@ -387,3 +387,12 @@ Install paths, measured on tag `v0.1.0-rc1` (commit `264b495`, Bloom pin `433a0d
 | a second fresh checkout of the same tag, other path | `bloom petals build <dir>` | `dcd906baedd1b035b6fad8d0f441d6dd8890a14a87e09c12c0fd21049106f710` | all 17 `.wasm` differ |
 
 So an archive install and an install of its extracted tree have different hashes (docs/known-limitations.md §10), and a source install would give a new hash each time, because components embed the checkout path. `scripts/build.sh` (the `[build].command`, no `PETAL_BIN`, warm Cargo home) took 60 s; Bloom kills a source build after 300 s.
+
+## 14. Agent-rehearsal data (2026-11-09)
+
+Only these two sequencer writes, testnet, throwaway key, our own space; each dry-run first. No signature or receipt is kept (`space/lib.sh` `scrub`).
+
+| write (script) | id | ipfs | hub confirmation |
+|---|---|---|---|
+| proposal "Agent rehearsal: adopt monthly community calls", single-choice For/Against/Abstain, 4 days (`space/08_new_proposal.sh`) | `0xe5c498f4fd8d42057e6b738d64440f643aad0692ace8bb80eb58902f60048846` | `bafkreiddarnlbyokm7uurn64rjtw7wsd536wkayoizm2nbgdlxuvjmaqpi` | `active`, start 1794240817, end 1794586417 (2026-11-13T16:13:37Z), snapshot 12098629 |
+| vote by the throwaway (delegate), choice 1 For, reason "Calls keep members informed" (`space/12_agent_rehearsal_delegate_vote.sh`) | `0xd6fe37dc4b32ce6d73ff17bea39e8ffa902d9d3f3154e6aa84ff2b6a797cf298` | `bafkreih3or6gh4vh6csg6okzeote2htcukv3qjzftnslxabf56ix63urda` | `votes` shows it: choice 1, vp 1, created 1794240828, app `bloom-ballot`; proposal `scores [1,0,0]`, `votes 1` |
