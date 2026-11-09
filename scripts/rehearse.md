@@ -21,7 +21,7 @@ bash scripts/dev-cycle.sh
 ```
 
 Type `ENROLL` when asked, restart the triad when asked, and change no file in
-the repo until step 10 is done.
+the repo while it runs.
 
 Expected last line of the build section:
 `OK: enrolled == built == installed: <hash>`.
@@ -87,9 +87,9 @@ delegate in `follow`, and `"outcome":"saved"`.
 ## 4. Read the inbox and following
 
 ```sh
-bloom vfs cat "$A/inbox.json" | jq -c '.spaces[].open[] | {title, voted, our_choice}'
+bloom vfs cat "$A/inbox.json" | jq -c '.spaces[].open[]? | {title, voted, our_choice}'
 bloom vfs cat "$A/inbox.json" | jq -c '.alerts[] | {kind, title}'
-bloom vfs cat "$A/following.json" | jq -c '.following[].proposals[] | {title, delegate_choice, vote_id: .suggested_write.body.vote_id}'
+bloom vfs cat "$A/following.json" | jq -c '.following[].proposals[]? | {title, delegate_choice, vote_id: .suggested_write.body.vote_id}'
 ```
 
 Expected:
@@ -107,7 +107,7 @@ Expected:
 ## 5. Write the suggested body, for the rehearsal only
 
 ```sh
-BODY="$(bloom vfs cat "$A/following.json" | jq -c --arg t "$REHEARSAL" 'first(.following[].proposals[] | select(.title == $t)) | .suggested_write.body')"
+BODY="$(bloom vfs cat "$A/following.json" | jq -c --arg t "$REHEARSAL" 'first(.following[].proposals[]? | select(.title == $t)) | .suggested_write.body')"
 echo "$BODY"
 W
 ```
@@ -189,8 +189,8 @@ seconds and repeat; it opens no ceremony.
 ## 12. The inbox shows it voted
 
 ```sh
-bloom vfs cat "$A/inbox.json" | jq -c --arg t "$REHEARSAL" '.spaces[].open[] | select(.title == $t) | {title, voted, our_choice}'
-bloom vfs cat "$A/following.json" | jq -c '[.following[].proposals[].title]'
+bloom vfs cat "$A/inbox.json" | jq -c --arg t "$REHEARSAL" '.spaces[].open[]? | select(.title == $t) | {title, voted, our_choice}'
+bloom vfs cat "$A/following.json" | jq -c '[.following[].proposals[]?.title]'
 ```
 
 Expected: `"voted":true` and `"our_choice":{"number":1,"label":"For"}`. The
