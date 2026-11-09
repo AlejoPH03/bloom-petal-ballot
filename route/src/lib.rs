@@ -6,6 +6,7 @@
 
 use std::fmt;
 
+pub mod following;
 pub mod hub;
 pub mod inbox;
 pub mod mandate;

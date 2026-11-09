@@ -12,8 +12,9 @@ The mandate is **advisory**. It lives in the Petal's store and the same agent
 it constrains can rewrite it through `mandate.json`. It filters bad drafts
 *before* the owner is asked; it does not replace the owner: every vote still
 needs the owner's passkey approval (docs/plan-votes.md §3). An owner-signed,
-binding mandate (one the agent cannot edit) is future work. `follow` is
-stored and validated only; `following.json` is not in scope.
+binding mandate (one the agent cannot edit) is future work. `follow` was
+stored and validated only in this plan; `following.json` and the inbox's
+`delegate_voted` alert came later (section "Following", 2026-11-09).
 
 ## Routes
 
@@ -138,3 +139,21 @@ inbox projection from `ballot_inbox_testnet.json` + `ballot_voted_testnet.json`
 (test proposal `voted: true`); synthetic results (win, loss, tie, no scores);
 `closing_soon`; one space failing while another renders; no mandate →
 explanation. Then Verify from CLAUDE.md with reads only.
+
+## Following (added 2026-11-09, `route/src/following.rs`)
+
+`following.json`: `petal::account_read_spec().caps(&["bloom:http","bloom:store","bloom:vfs.read"])`,
+5 s cache, no store writes. For each of the first 10 `follow` entries, at most
+3 hub calls, reusing `INBOX_QUERY` and `VOTED_QUERY` (no new query text):
+proposals (open list ≤ 20), the delegate's votes on the open supported ones,
+this account's votes on those the delegate voted on. Listed only when the
+delegate's choice exists on the proposal and the id is one `votes/new.json`
+accepts. `suggested_write` = `{path, body}`, the body as `votes/new.json`
+parses it. An entry whose space the mandate's `spaces` would refuse carries a
+`warning`.
+
+The inbox's `delegate_voted` alert applies the same condition, for the mandate
+spaces it already watches (the third hub call of the bound above). A followed
+space outside `spaces` gets no alert: `following.json` warns instead, because
+a vote there would be refused. A failed delegate query sets `delegate_error`
+on that space and keeps its open list.

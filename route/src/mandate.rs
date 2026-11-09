@@ -25,6 +25,8 @@ pub const MAX_FOLLOW: usize = 50;
 pub const MAX_VOTES_PER_DAY: u32 = 100;
 /// The inbox reads at most this many mandate spaces.
 pub const INBOX_MAX_SPACES: usize = 10;
+/// `following.json` reads at most this many follow entries.
+pub const FOLLOWING_MAX_ENTRIES: usize = 10;
 /// The daily limit is a rolling window of this length.
 pub const DAY_MS: u64 = 24 * 60 * 60 * 1000;
 
@@ -37,8 +39,8 @@ pub struct Mandate {
     pub schema: String,
     /// Allowed spaces; empty = no space restriction.
     pub spaces: Vec<String>,
-    /// space -> delegate address (EIP-55). Stored only (following.json is
-    /// future work).
+    /// space -> delegate address (EIP-55), read by `following.json` and the
+    /// inbox's `delegate_voted` alert.
     pub follow: BTreeMap<String, String>,
     pub blocked_keywords: Vec<String>,
     pub require_reason: bool,
@@ -213,7 +215,7 @@ impl Mandate {
             None => notes.push("max_votes_per_day is not set: no daily limit".into()),
         }
         if !self.follow.is_empty() {
-            notes.push("follow is stored only; nothing acts on it yet".into());
+            notes.push(format!("following.json offers the votes of followed delegates (first {FOLLOWING_MAX_ENTRIES} entries); nothing votes automatically"));
         }
         notes.push("the mandate applies to new vote_ids only: a vote already bound is never re-checked".into());
         notes
@@ -292,7 +294,7 @@ pub fn body_schema() -> Value {
         "description": "Every field is optional; a write replaces the whole mandate; {} clears it.",
         "properties": {
             "spaces": {"type": "array", "maxItems": MAX_SPACES, "items": {"type": "string", "pattern": "^[a-z0-9-]+(\\.[a-z0-9-]+)+$"}, "description": "allowed spaces; empty or absent = any space"},
-            "follow": {"type": "object", "maxProperties": MAX_FOLLOW, "additionalProperties": {"type": "string", "pattern": "^0x[0-9a-fA-F]{40}$"}, "description": "space -> delegate address (stored only)"},
+            "follow": {"type": "object", "maxProperties": MAX_FOLLOW, "additionalProperties": {"type": "string", "pattern": "^0x[0-9a-fA-F]{40}$"}, "description": "space -> delegate address; see following.json"},
             "blocked_keywords": {"type": "array", "maxItems": MAX_KEYWORDS, "items": {"type": "string", "minLength": 1, "maxLength": KEYWORD_MAX_CHARS}, "description": "refuse proposals whose title or body contains one (case-insensitive)"},
             "require_reason": {"type": "boolean", "default": false},
             "max_votes_per_day": {"type": "integer", "minimum": 1, "maximum": MAX_VOTES_PER_DAY, "description": "rolling 24 h; absent = no limit"}
@@ -436,7 +438,7 @@ mod tests {
         let many = format!(r#"{{"spaces":[{}],"follow":{{"a.eth":"0x042abe4ee65cbc71bd11297dcea2d69e1650a596"}},"max_votes_per_day":3}}"#,
             (0..11).map(|i| format!("\"s{i}.eth\"")).collect::<Vec<_>>().join(","));
         let notes = set(&many).notes().join(" | ");
-        assert!(notes.contains("first 10 spaces") && notes.contains("follow is stored only") && notes.contains("at most 3"));
+        assert!(notes.contains("first 10 spaces") && notes.contains("following.json offers") && notes.contains("at most 3"));
     }
 
     #[test]

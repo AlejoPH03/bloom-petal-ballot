@@ -17,7 +17,9 @@ golden vector, recorded responses, space scripts) is in
 (open proposals in the mandate's spaces, whether this account voted,
 closing-soon and result alerts), and `mandate.json` holds the owner's
 standing rules (allowed spaces, blocked keywords, required reason, a daily
-limit). **The mandate is advisory:** the Petal stores it and the agent can
+limit, delegates to follow). `following.json` offers the open proposals a
+followed delegate voted on and this account has not, each with a ready
+`votes/new.json` body; nothing votes automatically. **The mandate is advisory:** the Petal stores it and the agent can
 edit it. It filters bad drafts before the owner is asked; it is not a
 security boundary, and every vote still needs the owner's approval in a
 passkey ceremony. An owner-signed, binding mandate is future work
