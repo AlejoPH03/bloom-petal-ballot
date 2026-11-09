@@ -90,6 +90,37 @@ sequenceDiagram
     R-->>A: status counted
 ```
 
+## Using ballot with an agent
+
+An agent needs only `bloom vfs` and the contract Bloom serves at
+`/petals/ballot/AGENTS.md`. [`docs/agent-setup/CLAUDE.md`](docs/agent-setup/CLAUDE.md)
+is a ready instruction file for a Claude Code session. An illustrative
+conversation, not a transcript:
+
+> **You:** What needs my attention in governance?
+>
+> **Agent:** Your delegate voted For on "Lower protocol fee to 0.2%", and you have not voted.
+>
+> **You:** Follow them on it.
+>
+> **Agent:** Drafted `follow-5fa4f371`. Bloom needs you to add this build to the wallet's policy first. The link is on your clipboard.
+>
+> **You:** Approved.
+>
+> **Agent:** The signing request is ready: For, in `bloom-ballot-182c.eth`. Bloom's own tool recomputed the digest and it matches. Compare it with the hash on the ceremony page. The link is on your clipboard.
+>
+> **You:** Approved.
+>
+> **Agent:** Submitted. Snapshot's receipt equals the digest. It is not counted yet.
+>
+> **You:** Is it counted?
+>
+> **Agent:** Yes. The record says `counted`, and the hub shows a vote with that id.
+>
+> **You:** Also vote For on the treasury transfer.
+>
+> **Agent:** Refused by your mandate (blocked keyword "treasury transfer"). Nothing was bound and no ceremony opened. I won't change the mandate unless you ask.
+
 ## Verify without trusting Ballot
 
 Snapshot's vote id is the EIP-712 digest Bloom signs (`docs/plan-votes.md` §0),
