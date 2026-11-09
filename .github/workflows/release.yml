@@ -1,0 +1,29 @@
+name: Release Petal
+
+# Final tags only. Release candidates are published by hand with
+# `gh release create --prerelease` (see CHANGELOG), and the reusable workflow
+# refuses to replace assets already on a release.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    # Keep this pinned to the full commit SHA of the SDK pin in
+    # petal-build.toml; ~/work/petal/docs/releasing-petals.md.
+    uses: bloom-directory/petal/.github/workflows/release-petal.yml@ba76944a20248493858bfbc2c5f86e3d859f719a
+    with:
+      petal-name: ballot
+      petal-tooling-ref: "ba76944a20248493858bfbc2c5f86e3d859f719a"
+      build-command: scripts/build.sh
+      package-root: .
+      expected-route-count: 17

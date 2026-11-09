@@ -1,6 +1,19 @@
 schema = "bloom.petal.package.v1"
 name = "ballot"
 
+# GitHub source install metadata, as in bloom-petal-hyperliquid and
+# bloom-petal-polymarket petal.toml. Bloom checks that repository equals the
+# install URL's owner/name (crates/bloom/src/github_source.rs
+# validate_source_manifest), and at our pin only accepts the owner
+# bloom-directory: see README "Installing".
+[source]
+kind = "github"
+repository = "AlejoPH03/bloom-petal-ballot"
+
+[build]
+command = "scripts/build.sh"
+outputs = ["petal/ballot"]
+
 [consent]
 summary = "Read Snapshot governance proposals and cast owner-approved votes"
 
