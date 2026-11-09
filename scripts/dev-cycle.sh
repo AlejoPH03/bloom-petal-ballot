@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Developer cycle for a signing build of ballot on the local Bloom triad.
 #
-#   build -> check -> enroll installer provenance -> (human restarts triad)
+#   build -> check -> leak check -> enroll installer provenance -> (human restarts triad)
 #   -> bloom petals build -> bloom petals install -> confirm hashes match
 #
 # Run it yourself from the repo root:  bash scripts/dev-cycle.sh
@@ -48,21 +48,24 @@ enrolled_hashes() {
 for tool in cargo petal wasm-tools jq; do need "$tool"; done
 load_triad_env
 
-step "1/7 host unit tests and route architecture check"
+step "1/8 host unit tests and route architecture check"
 cargo test --manifest-path route/Cargo.toml
 bash scripts/check-route-architecture.sh
 
-step "2/7 petal build and petal check"
+step "2/8 petal build and petal check"
 petal build --root .
 petal check --root .
 
-step "3/7 component imports (expect sign and vfs only on votes/new.json; store on votes/*; http on votes/new.json, votes/[vote_id].json and the proposal reads)"
+step "3/8 component imports (expect sign and vfs only on votes/new.json; store on votes/*; http on votes/new.json, votes/[vote_id].json and the proposal reads)"
 while IFS= read -r wasm; do
   echo "== $wasm"
   wasm-tools component wit "$wasm" | grep -E 'import bloom:' || true
 done < <(find petal/ballot -name '*.wasm' | sort)
 
-step "4/7 enroll installer provenance (writes $BLOOM_PROVENANCE_CATALOG)"
+step "4/8 leak check (no signature-sized hex outside the allowlist)"
+bash scripts/leak-check.sh
+
+step "5/8 enroll installer provenance (writes $BLOOM_PROVENANCE_CATALOG)"
 config_dir="$(dirname "$BLOOM_PROVENANCE_CATALOG")"
 before="$(enrolled_hashes)"
 echo "Command:"
@@ -83,7 +86,7 @@ case "$(printf '%s\n' "$new_hashes" | sed '/^$/d' | wc -l | tr -d ' ')" in
 esac
 [ -n "$enrolled_hash" ] && echo "Enrolled package hash: $enrolled_hash"
 
-step "5/7 restart the triad (you do this; the script never does)"
+step "6/8 restart the triad (you do this; the script never does)"
 cat <<'EOF'
 Machine and Broker read the provenance catalog only at startup.
   1. In the launcher's terminal press Ctrl+C, then start the launcher again
@@ -95,14 +98,14 @@ EOF
 read -r -p "Restart the triad, wait for ready, then press Enter... " _
 load_triad_env   # the runtime directory changes on every launch
 
-step "6/7 bloom petals build and install (never --force)"
+step "7/8 bloom petals build and install (never --force)"
 build_out="$(bloom petals build .)"
 printf '%s\n' "$build_out"
 package_hash="$(printf '%s\n' "$build_out" | sed -n 's/^hash: \([0-9a-f]\{64\}\)$/\1/p' | head -n1)"
 [ -n "$package_hash" ] || die "could not read the package hash from bloom petals build"
 bloom petals install .
 
-step "7/7 confirm the installed package is the enrolled package"
+step "8/8 confirm the installed package is the enrolled package"
 echo "bloom petals build hash: $package_hash"
 if [ -n "$enrolled_hash" ] && [ "$enrolled_hash" != "$package_hash" ]; then
   die "MISMATCH: enrolled $enrolled_hash but built/installed $package_hash (a file changed after enrollment?)"

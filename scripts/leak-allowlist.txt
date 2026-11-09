@@ -1,0 +1,12 @@
+# Public hex values allowed by scripts/leak-check.sh, one per line:
+#   <hex run> # <why this value is public>
+# A run is clean when removing the values below leaves only pieces shorter
+# than 130 digits, so a value here cannot hide a signature next to it.
+# Add only values that are public by construction. Never a real key or a
+# signature made by a real wallet.
+
+00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899 # Rust core's decimal formatting table (00..99), compiled into every .wasm
+926a229e712f33c2fbdd2e60cb676e2332d0e7768b2ff88070a0c69c37d2e51542693fedf2e7eec85e8f7e57d32228da34ffdae7d6c3ac1f8f5e8db638b46cab1c # golden test vector: signed by the throwaway key on Sepolia testnet, docs/snapshot-testnet/golden/signature.hex
+74ef2201cbf2a66eda139f87dc12dc08693ca6c67645318e3da4583149153146233d13a7b2f42d10d9cf6dce0bc71a4aeac133205e49972dc023b8a65a3d57091b # public relayer receipt for the Step 0 space settings message, FINDINGS.md section 8
+2aec476a0ea3029110af6ffa50d3422404dcbd6c4786773c0734eed82aaa25335c51f9dc78252133556763de70e19e94080c2bb49adbd3d5325bf1c6e3840b091c # public relayer receipt for the Step 0 proposal message, FINDINGS.md section 8
+2eb06d05c25da5a1632997a7258d9f9ed2b8807e23ef6f189a8c9ede0443ea1c34c333362f5184cc60c9b6aeccdcf34cd8e3ba972a370adc373355f9ef3e3d9b1b # public relayer receipt for the Step 0 vote message, FINDINGS.md section 8

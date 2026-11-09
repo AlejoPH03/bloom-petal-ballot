@@ -55,6 +55,7 @@ Host-side (Claude Code runs these):
 cargo test --manifest-path route/Cargo.toml
 bash scripts/check-route-architecture.sh
 petal build --root . && petal check --root .
+bash scripts/leak-check.sh
 find petal/ballot -name '*.wasm' | sort | while read -r f; do echo "== $f"; wasm-tools component wit "$f" | grep -E 'import bloom:' || true; done
 bash -n scripts/dev-cycle.sh
 ```
