@@ -376,4 +376,14 @@ Only these two sequencer writes, testnet, throwaway key, our own space; each dry
 | proposal "Rehearsal: extend voting period to 5 days", single-choice For/Against/Abstain, 7 days (`space/08_new_proposal.sh`) | `0xcba6d1177cba4dfa21e2377025145cdc9c0084e3f783be79085869cb1d5fb63b` | `bafkreicppvbybzkzyym52ey7royq2uirxx6lqc424cn3jjxejjyixenwoq` | `active`, start 1794234940, end 1794839740 (2026-11-16T14:35:40Z), snapshot 12098147 |
 | vote by the throwaway (delegate), choice 1 For, reason "Longer windows raise turnout" (`space/11_rehearsal_delegate_vote.sh`) | `0x9d7611397356de0335be56f3a782824ce256a9ed26ac88294b51717567a39121` | `bafkreibo5mmxfrfo54x5ziknide7uaeigwgnlkjbr4urynp5f4jrlkj4ly` | `votes` shows it: choice 1, vp 1, created 1794234954, app `bloom-ballot`; proposal `scores [1,0,0]`, `votes 1` |
 
-Install-path hashes are added below once measured on the tag.
+Install paths, measured on tag `v0.1.0-rc1` (commit `264b495`, Bloom pin `433a0daf`), archive built with `scripts/build.sh` and the pinned `petal package` from a fresh clone (no enrollment). Archive sha256 `c0d04224f2c3dbb13c847b5b629395fdda13773d969b95dc666f3daddb174168`.
+
+| how | command | package hash | result |
+|---|---|---|---|
+| GitHub source | `bloom petals install https://github.com/AlejoPH03/bloom-petal-ballot --ref v0.1.0-rc1` | none | refused: `unsupported GitHub owner AlejoPH03; trusted owner is bloom-directory` |
+| release archive | `bloom petals install ballot-v0.1.0-rc1.petal.tar.gz` | `edb45c0b98a563c662c6afd69dc2cef52dce9db0c6f2d8bda9d542e561518748` | installed; `petal package` reported the same hash; `status.json`, `proposals.json`, `following.json`, `mandate.json` read |
+| extracted archive, directory | `bloom petals build <dir>` and `bloom petals install <dir>` | `1656c9d1377c1aadfa7058fec0ab25a337accf6c3dfa17db06eae06e37d29491` | installed |
+| the tag checkout the archive was built from | `bloom petals build <dir>` | `1656c9d1…9491` (same bytes as the archive) | |
+| a second fresh checkout of the same tag, other path | `bloom petals build <dir>` | `dcd906baedd1b035b6fad8d0f441d6dd8890a14a87e09c12c0fd21049106f710` | all 17 `.wasm` differ |
+
+So an archive install and an install of its extracted tree have different hashes (docs/known-limitations.md §10), and a source install would give a new hash each time, because components embed the checkout path. `scripts/build.sh` (the `[build].command`, no `PETAL_BIN`, warm Cargo home) took 60 s; Bloom kills a source build after 300 s.

@@ -18,6 +18,7 @@ unless the RPC is Sepolia (chainId 11155111) and the sequencer is `https://testn
 
 `08_new_proposal.sh "<title>" "<body>" <minutes> [choices…]` adds a proposal (idempotent per title, `DRYRUN=1` supported).
 `09_space_visible.sh` re-signs the space settings with `private:false`, everything else as in 05. `10_demo_delegate_vote.sh` has the throwaway vote For with a reason on "Lower protocol fee to 0.2%" (idempotent). Both support `DRYRUN=1` and keep no signature on disk (`lib.sh` `scrub`). Both ran on 2026-11-09 (FINDINGS.md §12).
+`11_rehearsal_delegate_vote.sh <proposal id>` is the same for the dress-rehearsal proposal (FINDINGS.md §13). Set `SPACE_LABEL=bloom-ballot-182c` when `state/label` is gone: otherwise `lib.sh` makes up a new label.
 
 `dryrun_test.sh` builds and signs steps 5–7 offline with `DRYRUN=1` (no POST) and cleans up afterwards. It has been run, and it passes.
 
