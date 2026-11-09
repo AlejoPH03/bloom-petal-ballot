@@ -353,3 +353,16 @@ Same request shape as §10 (`gqlv.sh`). Nothing signed or submitted.
 | same | `no-such-space-xyz.eth` | `ballot_inbox_unknown_space.json` | both lists empty, no error |
 | `ballot_voted.graphql`: `votes(first: 50, where: {voter: $voter, proposal_in: $proposals})` with `$proposals: [String]!` | Bloom account `0x0c056ae6…2751` (checksummed), the four test-space proposals | `ballot_voted_testnet.json` | one vote: the accepted live vote on "bloom-ballot test", choice 1 |
 | same | throwaway, all lowercase | `ballot_voted_testnet_lowercase_voter.json` | its Step 0 vote (`0xd74075ee…`): `proposal_in` works and `voter` is case-insensitive here too |
+
+## 12. Demo prep (2026-11-09): delegate fixture, visible space
+Only these two sequencer writes, testnet, throwaway key, our own space; each dry-run first (`DRYRUN=1`: signed, not POSTed).
+No signature or receipt is kept: `space/lib.sh` `scrub` deletes the envelope and strips the receipt.
+
+| write (script) | id | ipfs | hub confirmation |
+|---|---|---|---|
+| space settings, `private:false` (`space/09_space_visible.sh`) | `0xed39d33e3b9de0831a13b7cc10dfa1d14b61b59ba6562bc5533c959c4323aaf5` | `bafkreihbz7cjrfwv2beakkxm6vc3ffdvejbiszvcrwcwej5umpdrqbgkkm` | `space.private` and `spaces(where:{id_in}).private` both `false`; every other setting unchanged (same as the Step 0 signed settings, compared before and after) |
+| vote by the throwaway, choice 1 For, reason "Lower fees bring volume", `0x5fa4f371…2607` (`space/10_demo_delegate_vote.sh`) | `0x6324acdd5c3fb32c06e5678951666c1b441deeaf58e1040cb7fa4f68e18a8023` | `bafkreid6fcddnerttttsazb7l67fx6xrhz6oftsn6jdi46hqwsj4rgxjkq` | `votes` shows it: choice 1, vp 1, created 1794233443, app `bloom-ballot`; proposal `scores [7,0,0]`, `votes 7`, `active` |
+
+Before the vote the proposal already had six votes, all For, from other addresses (app `daochat`, 2026-11-07/08). None is the Bloom account, so `following.json` still offers it.
+
+`ballot_voted.graphql` for the throwaway, checksummed, on the three open proposals → `responses/ballot_voted_testnet_delegate.json`: the demo vote and the Step 0 vote on "bloom-ballot test". No new query text: `following.json` reuses `ballot_inbox.graphql` and `ballot_voted.graphql`.

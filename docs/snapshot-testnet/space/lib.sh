@@ -46,3 +46,13 @@ sign_and_send() {
   curl -s -m 60 -X POST "$SEQ" -H 'Accept: application/json' -H 'Content-Type: application/json' \
        --data-binary @"$out.envelope.json" | tee "$out.response.json"; echo
 }
+
+# scrub <outprefix>: keep no signature bytes on disk after sign_and_send: the
+# envelope (our signature) goes, and the response loses the relayer receipt.
+scrub() {
+  local out="$1"
+  rm -f "$out.envelope.json"
+  if [ -s "$out.response.json" ]; then
+    jq -c 'del(.relayer.receipt)' "$out.response.json" > "$out.response.tmp" && mv "$out.response.tmp" "$out.response.json"
+  fi
+}

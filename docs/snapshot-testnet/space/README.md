@@ -17,6 +17,8 @@ unless the RPC is Sepolia (chainId 11155111) and the sequencer is `https://testn
 | 7 | `07_vote.sh` | no (gasless) | Queries vp, then casts ONE vote (`choice: 1` = For) with the exact snapshot.js `voteTypes`. It polls `votes(where:{proposal, voter})` and prints scores. It is idempotent. |
 
 `08_new_proposal.sh "<title>" "<body>" <minutes> [choices…]` adds a proposal (idempotent per title, `DRYRUN=1` supported).
+`09_space_visible.sh` re-signs the space settings with `private:false`, everything else as in 05. `10_demo_delegate_vote.sh` has the throwaway vote For with a reason on "Lower protocol fee to 0.2%" (idempotent). Both support `DRYRUN=1` and keep no signature on disk (`lib.sh` `scrub`). Both ran on 2026-11-09 (FINDINGS.md §12).
+
 `dryrun_test.sh` builds and signs steps 5–7 offline with `DRYRUN=1` (no POST) and cleans up afterwards. It has been run, and it passes.
 
 ## Space settings (05)
@@ -24,7 +26,7 @@ unless the RPC is Sepolia (chainId 11155111) and the sequencer is `https://testn
 - `filters.onlyMembers: true` and `admins: [throwaway]`, so only the throwaway can propose (`snapshot-sequencer/src/writer/proposal.ts:152-160`).
   Proposal `validation: any`.
 - `voteValidation: any`, so any address may vote. vp > 0 is still enforced (`writer/vote.ts:89`).
-- `voting.type: single-choice` (enforced on proposals, `writer/proposal.ts:130-131`), `private: true` (hidden from listings).
+- `voting.type: single-choice` (enforced on proposals, `writer/proposal.ts:130-131`), `private: true` (hidden from listings; `private: false` since `09_space_visible.sh`, 2026-11-09).
 
 ## Sepolia ETH needed
 Gas estimates against Sepolia on 2026-11-06 (`cast estimate`): mint 141,730, approve 129,366, commit 128,547.
