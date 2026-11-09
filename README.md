@@ -41,6 +41,87 @@ bloom petals build .
 See `AGENTS.md` for the route contract and the agent's vote procedure, and
 `docs/` for development notes.
 
+## Installing
+
+Every install path below gives all the read routes: `status.json`, proposals,
+`inbox.json`, `following.json` and `mandate.json`. **Signing is separate.**
+`votes/new.json` also needs installer provenance for that exact package hash,
+and the wallet owner's approval of the package ("Signing votes" below).
+
+If a different build of `ballot` is installed, run `bloom petals uninstall
+ballot` first. Never use `--force`.
+
+### From the release archive (the path for reviewers)
+
+```sh
+gh release download v0.1.0-rc1 -R AlejoPH03/bloom-petal-ballot
+sha256sum -c ballot-v0.1.0-rc1.petal.tar.gz.sha256
+bloom petals install ./ballot-v0.1.0-rc1.petal.tar.gz
+```
+
+Bloom does not build anything for this path. The archive is built by
+`petal package` from a clean checkout of the tag. Release page:
+<https://github.com/AlejoPH03/bloom-petal-ballot/releases/tag/v0.1.0-rc1>.
+
+### From a local checkout
+
+```sh
+bash scripts/build.sh
+bloom petals build . && bloom petals install .
+```
+
+Bloom hashes every file under the root except `.git` and `target`, including
+git-ignored files such as `docs/snapshot-testnet/space/state/` or a `dist/`
+directory, so remove what should not ship.
+
+### From GitHub source
+
+```sh
+bloom petals install https://github.com/AlejoPH03/bloom-petal-ballot --ref v0.1.0-rc1
+```
+
+**This is refused at our Bloom pin:** `unsupported GitHub owner AlejoPH03;
+trusted owner is bloom-directory`. Bloom accepts source installs only from the
+`bloom-directory` organization (docs/known-limitations.md §9). The package is
+ready for it: `petal.toml` has `[source]` and `[build]` like the reference
+Petals, and `scripts/build.sh` works in a fresh checkout. If the repository
+moves there, set `[source].repository` to the new name.
+
+A source install gives all the read routes. Bloom rebuilds it in a fresh
+temporary checkout, so its hash differs from any local build and from one
+install to the next. It therefore cannot be enrolled for signing in advance.
+
+### Signing votes
+
+A signing route works only when Bloom's installer provenance catalog lists
+that exact package hash for the `snapshot.vote` operation class. Without it,
+reads work and `votes/new.json` is refused with a bare permission error. The
+first signing attempt then opens a policy-update ceremony, and the wallet
+owner approves the package hash.
+
+On a developer triad, the owner enrolls the package themselves (the command
+exists only in the `triad-dev-harness` build of `bloom`). Enroll and install
+the **same directory**:
+
+```sh
+mkdir ballot-pkg && tar -xzf ballot-v0.1.0-rc1.petal.tar.gz -C ballot-pkg
+"$BLOOM_BIN" init triad-enroll-developer-petal-provenance "$BLOOM_TRIAD_DEVELOPER_ROOT/config" ballot-pkg
+# restart the triad, then:
+bloom petals uninstall ballot   # only if another build is installed
+bloom petals install ballot-pkg
+```
+
+Do not enroll the extracted tree and then install the `.petal.tar.gz`. The
+hashes differ, because enrollment and directory installs include the generated
+`artifacts/` and a `petal package` archive does not
+(docs/known-limitations.md §10). For a checkout, `bash scripts/dev-cycle.sh`
+does all of this.
+
+On a packaged Bloom, an owner cannot enroll a package: its catalog has to pin
+the hash, as it does for the Petals Bloom ships. That hash is the one
+`bloom petals install <archive>` reports, which is also `package_hash` in a
+release's `petal-release.json`.
+
 ## Enabling mainnet votes
 
 Mainnet votes are refused by design (`mainnet_disabled`, before any external

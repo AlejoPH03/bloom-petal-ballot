@@ -366,3 +366,14 @@ No signature or receipt is kept: `space/lib.sh` `scrub` deletes the envelope and
 Before the vote the proposal already had six votes, all For, from other addresses (app `daochat`, 2026-11-07/08). None is the Bloom account, so `following.json` still offers it.
 
 `ballot_voted.graphql` for the throwaway, checksummed, on the three open proposals → `responses/ballot_voted_testnet_delegate.json`: the demo vote and the Step 0 vote on "bloom-ballot test". No new query text: `following.json` reuses `ballot_inbox.graphql` and `ballot_voted.graphql`.
+
+## 13. Dress-rehearsal data and install hashes (2026-11-09)
+
+Only these two sequencer writes, testnet, throwaway key, our own space; each dry-run first. No signature or receipt is kept (`space/lib.sh` `scrub`).
+
+| write (script) | id | ipfs | hub confirmation |
+|---|---|---|---|
+| proposal "Rehearsal: extend voting period to 5 days", single-choice For/Against/Abstain, 7 days (`space/08_new_proposal.sh`) | `0xcba6d1177cba4dfa21e2377025145cdc9c0084e3f783be79085869cb1d5fb63b` | `bafkreicppvbybzkzyym52ey7royq2uirxx6lqc424cn3jjxejjyixenwoq` | `active`, start 1794234940, end 1794839740 (2026-11-16T14:35:40Z), snapshot 12098147 |
+| vote by the throwaway (delegate), choice 1 For, reason "Longer windows raise turnout" (`space/11_rehearsal_delegate_vote.sh`) | `0x9d7611397356de0335be56f3a782824ce256a9ed26ac88294b51717567a39121` | `bafkreibo5mmxfrfo54x5ziknide7uaeigwgnlkjbr4urynp5f4jrlkj4ly` | `votes` shows it: choice 1, vp 1, created 1794234954, app `bloom-ballot`; proposal `scores [1,0,0]`, `votes 1` |
+
+Install-path hashes are added below once measured on the tag.

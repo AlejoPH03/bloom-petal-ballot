@@ -4,3 +4,4 @@
 **/target/
 *.petal.tar
 *.petal.tar.gz
+/dist/

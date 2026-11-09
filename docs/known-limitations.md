@@ -173,3 +173,17 @@ Every build is a new package hash with an empty private store (SKILL.md:466-470)
 so records, bindings and kept signatures of the previous build are not
 visible to the next one. Do not rebuild while a vote is `awaiting_approval`
 or `signed`; a vote already `submitted` is safe on Snapshot regardless.
+
+## 9. A GitHub source install is refused unless the repository is under `bloom-directory`
+
+At our Bloom pin (`433a0daf`), `bloom petals install https://github.com/AlejoPH03/bloom-petal-ballot --ref <tag>` fails with `unsupported GitHub owner AlejoPH03; trusted owner is bloom-directory` (`crates/bloom/src/github_source.rs:17`, `trusted_repo` at `:1512-1517`). The check runs on the URL, before Bloom fetches anything; a `git@github.com:` URL goes through the same check. Only Bloom can change that: move the repository into the `bloom-directory` organization, or change the constant in Bloom. `petal.toml` has `[source]` and `[build]`, and `scripts/build.sh` builds a fresh checkout. If the repository moves, `[source].repository` must equal the new `owner/name`, because `validate_source_manifest` (`:1666-1690`) compares them.
+
+Bloom also kills a source build after 300 s (`run_source_build_streaming`, `:1766`).
+
+## 10. A `petal package` archive and its extracted tree have different package hashes
+
+`bloom petals install <archive>` hashes the archive's files. `petal package` leaves out `artifacts/` (SDK `crates/petal-builder/src/lib.rs` `should_skip_package_dir`), so the hash has no generated artifacts. `bloom petals build <dir>`, `bloom petals install <dir>` and `triad-enroll-developer-petal-provenance <dir>` all go through `build_petal_package_dir` (`crates/bloom-petals/src/package.rs:1042-1072`), which regenerates `artifacts/routes/` and `artifacts/build-manifest.json` and includes them in the hash. Consequences, measured in `docs/snapshot-testnet/FINDINGS.md` §13:
+
+- Enrolling an extracted archive and then installing the `.petal.tar.gz` does not match: signing is refused.
+- Enrolling a directory and installing that same directory matches. So does installing a tar written by `bloom petals build <dir> --out <file>.petal.tar`.
+- `package_hash` in a release's `petal-release.json` is the archive-install hash. It is the value for a Bloom-maintained catalog, not for developer enrollment.
