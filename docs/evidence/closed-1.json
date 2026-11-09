@@ -1,0 +1,36 @@
+{
+  "approval": null,
+  "bound": false,
+  "counted": null,
+  "created_ms": 1794069072278,
+  "detail": "choice 9 but this proposal has 3 choices (1-3)",
+  "history": [
+    {
+      "at_ms": 1794069072278,
+      "status": "refused"
+    }
+  ],
+  "index": 0,
+  "inferred": false,
+  "last_attempt_ms": null,
+  "last_error": null,
+  "network": "testnet",
+  "next": "fix the request (see reason_code) and write again; this vote_id is not bound",
+  "note": "A write is never a completed vote: submitted means the Snapshot sequencer accepted it; counted means the hub shows a vote whose id equals this digest with this choice.",
+  "reason_code": "choice_out_of_range",
+  "receipt": null,
+  "schema": "ballot.vote.v1",
+  "sign_intent": "snapshot.vote",
+  "signature_sha256": null,
+  "status": "refused",
+  "submit_attempts": 0,
+  "summary": {
+    "choice": 9,
+    "proposal": "0x8ef55d4139e0c94f83b25aea7d4a7d573092eef7da4bc8ec8a54faab9d644b00",
+    "reason": "",
+    "space": "bloom-ballot-182c.eth"
+  },
+  "updated_ms": 1794069072278,
+  "vote_id": "closed-1",
+  "wallet": "main"
+}

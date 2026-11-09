@@ -1,0 +1,92 @@
+{
+  "account": 0,
+  "attempt": 0,
+  "claimed_hash": "0x92bba95c785fe167e2354edc53579bbaeb96769d725b26f84d4be284ca1b210b",
+  "error": null,
+  "first_attempt_ms": 1793990589132,
+  "network": "testnet",
+  "pending": null,
+  "preimage": "0x1901484fce18f892e8535a4b6700e197a8026f4213f809d23ae117da03b497e186704695cdb126a894d85b5ac562bdee1149e1f52ee775f2429d159dd6aee5990809",
+  "schema": "ballot.hello-sign.v1",
+  "sign_intent": "snapshot.vote",
+  "signature_recovers_to_account": true,
+  "signature_sha256": "9dc329c9a572b765d4a9fc038f052196555804950ff137d3dde5019f8b92cf02",
+  "signer_address": "0x0c056ae661D3d3f87919eCb9733527509D392751",
+  "status": "signed",
+  "temporary": "Step 1 pipeline proof; this route is removed after Step 1. Nothing is submitted to Snapshot.",
+  "typed_data": {
+    "domain": {
+      "name": "snapshot",
+      "version": "0.1.4"
+    },
+    "message": {
+      "app": "bloom-ballot",
+      "choice": 1,
+      "from": "0x0c056ae661D3d3f87919eCb9733527509D392751",
+      "metadata": "{}",
+      "proposal": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "reason": "hello from ballot",
+      "space": "bloom-ballot-hello.eth",
+      "timestamp": 1793923200
+    },
+    "primaryType": "Vote",
+    "types": {
+      "EIP712Domain": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "version",
+          "type": "string"
+        }
+      ],
+      "Vote": [
+        {
+          "name": "from",
+          "type": "string"
+        },
+        {
+          "name": "space",
+          "type": "string"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint64"
+        },
+        {
+          "name": "proposal",
+          "type": "string"
+        },
+        {
+          "name": "choice",
+          "type": "uint32"
+        },
+        {
+          "name": "reason",
+          "type": "string"
+        },
+        {
+          "name": "app",
+          "type": "string"
+        },
+        {
+          "name": "metadata",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "updated_ms": 1793991109092,
+  "verify": {
+    "commands": [
+      "bloom vfs cat /petals/ballot/testnet/accounts/main/0/hello-sign.json | jq -c .typed_data | bloom vfs write /tools/eip712/hash/ballot-hello/in.json",
+      "bloom vfs cat /tools/eip712/hash/ballot-hello/out.hex"
+    ],
+    "compare_with": "the exact hash in the ceremony's \"The exact plan that was reviewed\" (exact_ordered_hashes; shown there without 0x)",
+    "expected_out_hex": "0x92bba95c785fe167e2354edc53579bbaeb96769d725b26f84d4be284ca1b210b",
+    "why": "The ceremony shows only the digest. Recompute it from the readable typed_data with Bloom's own tool and compare."
+  },
+  "wallet": "main",
+  "write": "bloom vfs write /petals/ballot/testnet/accounts/main/0/hello-sign.json --data '{\"attempt\":0}' (retry with the same body; a new attempt number only if an approval expired)"
+}

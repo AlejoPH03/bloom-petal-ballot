@@ -4,9 +4,9 @@ For a human, on the final local build. Testnet only. It casts one real testnet
 vote from the Bloom account on the rehearsal proposal, and tests that the
 mandate refuses a blocked proposal.
 
-The vote steps have **not** been run on this build: the expected output comes
-from `docs/plan-votes.md` §12 (the live acceptance of the same flow) and the
-route code. Stop at the first step that differs.
+This flow was run live on 2026-11-09 (`docs/evidence/rehearsal-*.json`). On a
+second run the rehearsal proposal is already voted. Stop at the first step that
+differs.
 
 Do not vote on "Lower protocol fee to 0.2%": it is reserved for the demo. It
 and the "Treasury transfer" proposal close 2026-11-13T18:21Z. The rehearsal

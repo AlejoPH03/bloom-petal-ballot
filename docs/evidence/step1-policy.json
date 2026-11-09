@@ -1,0 +1,18 @@
+{
+  "allowed_destinations": [
+    {
+      "chain": "anvil",
+      "destination": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+    },
+    {
+      "chain": "evm-31337",
+      "destination": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+    }
+  ],
+  "allowed_petal_packages": [
+    "315b127cc08ecb56caaca98946417c818bb0227d1f7b1627b22d87dba81ce9bd"
+  ],
+  "maximum_approval_lifetime_ms": 2592000000,
+  "required_verifiers": [],
+  "wallet_id": "main"
+}

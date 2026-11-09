@@ -1,0 +1,174 @@
+{
+  "approval": null,
+  "bound": true,
+  "counted": {
+    "checked_ms": 1794069858395,
+    "choice": 1,
+    "created": 1794069314,
+    "hub_vote_id": "0x891bbc0193c0dc469ac65cfffd5efab17f68039356b3daedc8ef93d130e62a2e"
+  },
+  "created_ms": 1794069314002,
+  "detail": null,
+  "digest": "0x891bbc0193c0dc469ac65cfffd5efab17f68039356b3daedc8ef93d130e62a2e",
+  "history": [
+    {
+      "at_ms": 1794069314002,
+      "status": "drafted"
+    },
+    {
+      "at_ms": 1794069314002,
+      "status": "awaiting_approval"
+    },
+    {
+      "at_ms": 1794069767769,
+      "status": "signed"
+    },
+    {
+      "at_ms": 1794069767769,
+      "status": "submitted"
+    },
+    {
+      "at_ms": 1794069858395,
+      "status": "counted"
+    }
+  ],
+  "index": 0,
+  "inferred": false,
+  "last_attempt_ms": 1794069767769,
+  "last_error": null,
+  "live": {
+    "checked": true,
+    "checked_at_ms": 1794069918881,
+    "counted": true,
+    "hub_vote": {
+      "choice": 1,
+      "created": 1794069314,
+      "id": "0x891bbc0193c0dc469ac65cfffd5efab17f68039356b3daedc8ef93d130e62a2e",
+      "voter": "0x0c056ae661D3d3f87919eCb9733527509D392751"
+    },
+    "superseded_hint": false
+  },
+  "network": "testnet",
+  "next": "done",
+  "note": "A write is never a completed vote: submitted means the Snapshot sequencer accepted it; counted means the hub shows a vote whose id equals this digest with this choice.",
+  "preimage": "0x1901484fce18f892e8535a4b6700e197a8026f4213f809d23ae117da03b497e186703b6f9498aacf83c877bfc7ff15357533a5f389f16224a1c524d8cbad128deec1",
+  "reason_code": null,
+  "receipt": {
+    "at_ms": 1794069767769,
+    "id": "0x891bbc0193c0dc469ac65cfffd5efab17f68039356b3daedc8ef93d130e62a2e",
+    "ipfs": "bafkreigmvxuqxec4kjr4cognbv3rp4mz2dlhj7ktskw3g7jk464o4jcf7q",
+    "receipt_sha256": "91876af9272154300f4a52b0f88cacf3275e44f6865c4b45f9e0813995dd3879",
+    "reconciled": false,
+    "relayer_address": "0x8BBE4Ac64246d600BC2889ef5d83809D138F03DF",
+    "warning": null
+  },
+  "schema": "ballot.vote.v1",
+  "sign_intent": "snapshot.vote",
+  "signature_sha256": "ce439448d19e6232ae7601cd80116e886ba85294c6251dec7dffc1df9ea8fca8",
+  "status": "counted",
+  "submit_attempts": 1,
+  "summary": {
+    "app": "bloom-ballot",
+    "choice": 1,
+    "choice_label": "For",
+    "choices": [
+      {
+        "label": "For",
+        "number": 1
+      },
+      {
+        "label": "Against",
+        "number": 2
+      },
+      {
+        "label": "Abstain",
+        "number": 3
+      }
+    ],
+    "from": "0x0c056ae661D3d3f87919eCb9733527509D392751",
+    "proposal": "0x8ef55d4139e0c94f83b25aea7d4a7d573092eef7da4bc8ec8a54faab9d644b00",
+    "proposal_title": "bloom-ballot test",
+    "reason": "ballot acceptance",
+    "space": "bloom-ballot-182c.eth",
+    "timestamp": 1794069314,
+    "type": "single-choice",
+    "voting_end": 1794593689,
+    "voting_start": 1793988890
+  },
+  "typed_data": {
+    "domain": {
+      "name": "snapshot",
+      "version": "0.1.4"
+    },
+    "message": {
+      "app": "bloom-ballot",
+      "choice": 1,
+      "from": "0x0c056ae661D3d3f87919eCb9733527509D392751",
+      "metadata": "{}",
+      "proposal": "0x8ef55d4139e0c94f83b25aea7d4a7d573092eef7da4bc8ec8a54faab9d644b00",
+      "reason": "ballot acceptance",
+      "space": "bloom-ballot-182c.eth",
+      "timestamp": 1794069314
+    },
+    "primaryType": "Vote",
+    "types": {
+      "EIP712Domain": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "version",
+          "type": "string"
+        }
+      ],
+      "Vote": [
+        {
+          "name": "from",
+          "type": "string"
+        },
+        {
+          "name": "space",
+          "type": "string"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint64"
+        },
+        {
+          "name": "proposal",
+          "type": "string"
+        },
+        {
+          "name": "choice",
+          "type": "uint32"
+        },
+        {
+          "name": "reason",
+          "type": "string"
+        },
+        {
+          "name": "app",
+          "type": "string"
+        },
+        {
+          "name": "metadata",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "updated_ms": 1794069858395,
+  "verify": {
+    "after_submission": "the same value is Snapshot's vote id (receipt.id and the hub's vote id)",
+    "commands": [
+      "bloom vfs cat /petals/ballot/testnet/accounts/main/0/votes/accept-1.json | jq -c .typed_data | bloom vfs write /tools/eip712/hash/ballot-votes/in.json",
+      "bloom vfs cat /tools/eip712/hash/ballot-votes/out.hex"
+    ],
+    "compare_with": "the exact hash in the ceremony's \"The exact plan that was reviewed\" (exact_ordered_hashes; shown there without 0x)",
+    "expected_out_hex": "0x891bbc0193c0dc469ac65cfffd5efab17f68039356b3daedc8ef93d130e62a2e",
+    "why": "The ceremony shows only the digest. Recompute it from the readable typed_data with Bloom's own tool and compare before approving."
+  },
+  "vote_id": "accept-1",
+  "wallet": "main"
+}

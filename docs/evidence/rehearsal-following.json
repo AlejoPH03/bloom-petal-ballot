@@ -1,0 +1,45 @@
+{
+  "account": {
+    "address": "0x0c056ae661D3d3f87919eCb9733527509D392751",
+    "index": 0,
+    "wallet": "main"
+  },
+  "advisory": "The mandate is advisory: it is stored by this Petal and the agent can edit it. It filters bad drafts before the owner is asked; every vote still needs the owner's approval in a passkey ceremony. An owner-signed, binding mandate is future work.",
+  "fetched_at": 1794238449,
+  "following": [
+    {
+      "delegate": "0x042abe4EE65cBC71Bd11297DCea2d69e1650a596",
+      "proposals": [
+        {
+          "closes_in_s": 355663,
+          "delegate_choice": {
+            "label": "For",
+            "number": 1
+          },
+          "id": "0x5fa4f371c47a9691128eaa0bc079abed859f73b9f2e0afb453ff5a7d5b752607",
+          "suggested_write": {
+            "body": {
+              "choice": 1,
+              "proposal": "0x5fa4f371c47a9691128eaa0bc079abed859f73b9f2e0afb453ff5a7d5b752607",
+              "reason": "Following 0x042abe4EE65cBC71Bd11297DCea2d69e1650a596",
+              "space": "bloom-ballot-182c.eth",
+              "vote_id": "follow-5fa4f371"
+            },
+            "path": "/petals/ballot/testnet/accounts/main/0/votes/new.json"
+          },
+          "title": "Lower protocol fee to 0.2%"
+        }
+      ],
+      "space": "bloom-ballot-182c.eth"
+    }
+  ],
+  "mandate_updated_ms": 1794237301832,
+  "network": "testnet",
+  "notes": [
+    "Every vote still needs the owner's approval in a passkey ceremony: writing a suggested_write body only starts that request.",
+    "The mandate still applies when the body is written (allowed spaces, blocked keywords, require_reason, daily limit), so a body shown here can be refused.",
+    "Listed: open proposals of a supported type that the delegate voted on and this account has not. Nothing here votes automatically.",
+    "vote_id is derived from the proposal: if that vote_id already ended (expired, rejected) or the delegate changed its choice, write under a new vote_id."
+  ],
+  "schema": "ballot.following.v1"
+}

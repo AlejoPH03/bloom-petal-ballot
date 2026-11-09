@@ -6,3 +6,8 @@ First release. Snapshot proposal reads on testnet and mainnet; owner-approved,
 gasless EIP-712 votes on testnet through `bloom:sign` (intent `snapshot.vote`);
 per-account inbox, advisory mandate and delegate following. Mainnet votes are
 refused (`mainnet_disabled`).
+
+Documentation: rewritten README and agent operating contract (`AGENTS.md`);
+live evidence in `docs/evidence/`; demo shot list (`docs/demo-script.md`);
+draft upstream issue for readable Petal signing review
+(`docs/upstream-issue-draft.md`).

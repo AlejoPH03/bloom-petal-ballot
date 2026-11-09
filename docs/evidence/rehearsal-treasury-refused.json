@@ -1,0 +1,36 @@
+{
+  "approval": null,
+  "bound": false,
+  "counted": null,
+  "created_ms": 1794237988405,
+  "detail": "the proposal's title contains the blocked keyword \"treasury transfer\"",
+  "history": [
+    {
+      "at_ms": 1794237988405,
+      "status": "refused"
+    }
+  ],
+  "index": 0,
+  "inferred": false,
+  "last_attempt_ms": null,
+  "last_error": null,
+  "network": "testnet",
+  "next": "fix the request (see reason_code) and write again; this vote_id is not bound",
+  "note": "A write is never a completed vote: submitted means the Snapshot sequencer accepted it; counted means the hub shows a vote whose id equals this digest with this choice.",
+  "reason_code": "mandate_blocked_keyword",
+  "receipt": null,
+  "schema": "ballot.vote.v1",
+  "sign_intent": "snapshot.vote",
+  "signature_sha256": null,
+  "status": "refused",
+  "submit_attempts": 0,
+  "summary": {
+    "choice": 1,
+    "proposal": "0x8c45d4c1f422023c56ba41b41d00f441df20b0a14ae22a0eab5e1eb77da505e1",
+    "reason": "Should be refused by the mandate",
+    "space": "bloom-ballot-182c.eth"
+  },
+  "updated_ms": 1794237988405,
+  "vote_id": "rehearsal-treasury",
+  "wallet": "main"
+}

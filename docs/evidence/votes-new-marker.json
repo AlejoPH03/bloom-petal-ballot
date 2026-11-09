@@ -1,0 +1,80 @@
+{
+  "body_schema": {
+    "additionalProperties": false,
+    "max_bytes": 4096,
+    "properties": {
+      "choice": {
+        "description": "1-based choice number (see the proposal's choices)",
+        "minimum": 1,
+        "type": "integer"
+      },
+      "proposal": {
+        "pattern": "^0x[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "reason": {
+        "default": "",
+        "maxLength": 500,
+        "type": "string"
+      },
+      "space": {
+        "maxLength": 64,
+        "pattern": "^[a-z0-9-]+(\\.[a-z0-9-]+)+$",
+        "type": "string"
+      },
+      "vote_id": {
+        "description": "your id for this vote; binds permanently to this vote once drafted",
+        "not": {
+          "const": "new"
+        },
+        "pattern": "^[a-z0-9-]{1,48}$",
+        "type": "string"
+      }
+    },
+    "required": [
+      "vote_id",
+      "space",
+      "proposal",
+      "choice"
+    ],
+    "type": "object"
+  },
+  "index": 0,
+  "last_write": {
+    "at_ms": 1794069861197,
+    "body_sha256": "cdb7cf3ed9828e8eee9b9b5f7d655baa0e0b5355388a6d7044ff0b6e6d3a0420",
+    "canonical_body_sha256": "ab3de2f535bc45d14728316b81653b32cb516ce65859e32006ca29fcaa1837d3",
+    "code": -3,
+    "message": "vote_id accept-1 is bound to a different vote (space, proposal, choice or reason differ); use a new vote_id",
+    "outcome": "conflict",
+    "record": "votes/accept-1.json",
+    "schema": "ballot.vote-last-write.v1",
+    "vote_id": "accept-1"
+  },
+  "network": "testnet",
+  "rules": {
+    "approval": "a write that needs the owner returns -3 'approval pending (<id>)'. Before approving, the owner runs the verify commands in votes/<vote_id>.json and checks that Bloom's hash equals the ceremony's exact hash; after approving, retry the exact same write promptly (the approval window is 5 minutes).",
+    "binding": "a vote_id binds permanently to (network, account, space, proposal, choice, reason) and the frozen typed data once drafted. The identical body resumes from the current state; a different body under a bound vote_id is refused (-3). A refused vote_id is not bound: a corrected body may reuse it.",
+    "body": "JSON object, at most 4096 bytes, unknown fields refused; reason at most 500 characters (missing = \"\"); vote_id \"new\" is reserved",
+    "checks_before_signing": "the proposal exists on this network and belongs to space; it is active and now < end; type single-choice or basic; 1 <= choice <= number of choices; the account has voting power. Each failure is recorded as refused with a reason_code.",
+    "completion": "a successful write means the handler finished: status submitted means the Snapshot sequencer accepted the vote; counted means the hub shows it. Read votes/<vote_id>.json.",
+    "expiry": "expired (proposal_closed, timestamp_stale, approval_expired) and rejected_by_snapshot are final: write a new vote_id to vote again.",
+    "mainnet": "mainnet votes are disabled in this build (refused as mainnet_disabled).",
+    "read_after_write": "every write, including mounted (asynchronous) ones, updates last_write below; compare its body_sha256 with sha256 of your body.",
+    "states": [
+      "refused",
+      "drafted",
+      "awaiting_approval",
+      "signed",
+      "submitted",
+      "counted",
+      "rejected_by_snapshot",
+      "expired",
+      "superseded"
+    ]
+  },
+  "schema": "ballot.votes-new.v1",
+  "sign_intent": "snapshot.vote",
+  "wallet": "main",
+  "write": "bloom vfs write /petals/ballot/testnet/accounts/main/0/votes/new.json --data '{\"vote_id\":\"<id>\",\"space\":\"<space>\",\"proposal\":\"0x…\",\"choice\":1,\"reason\":\"…\"}'"
+}

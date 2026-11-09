@@ -1,159 +1,163 @@
 # ballot operating contract
 
-`ballot` reads Snapshot governance proposals and casts owner-approved,
-gasless EIP-712 votes through Bloom signing (`bloom:sign`, intent
-`snapshot.vote`). Proposal reads work on both networks. Votes are cast on
-**testnet only**: a mainnet vote is refused (`mainnet_disabled`) before any
-external call. Design: `docs/plan-votes.md`.
+For agents using this Petal. `ballot` reads Snapshot proposals and casts
+owner-approved, gasless EIP-712 votes through Bloom signing (intent
+`snapshot.vote`). Below, `A=/petals/ballot/testnet/accounts/<wallet>/<n>` and
+`V=$A/votes`.
 
-## Routes
+## Rules
 
-| Route | Kind | Parameters | Read | Write | Capabilities |
-| --- | --- | --- | --- | --- | --- |
-| `/petals/ballot/` | dir | — | lists `status.json`, `testnet/`, `mainnet/` | — | none |
-| `/petals/ballot/status.json` | file | — | static JSON: petal, version, sign intent, hub and sequencer URLs per network | — | none |
-| `/petals/ballot/<network>/` | dir | `network` = `testnet` \| `mainnet` | lists `spaces/`, `proposals/`, `accounts/`; any other name is `not found` | — | none |
-| `/petals/ballot/<network>/spaces/` | dir | `network` | empty: spaces are reached by exact path (below) | — | none |
-| `/petals/ballot/<network>/spaces/<space>/` | dir | `space` = Snapshot space id, `[a-z0-9-]+(\.[a-z0-9-]+)+`, ≤ 64 bytes | lists `proposals.json`; an invalid id is `invalid` | — | none |
-| `/petals/ballot/<network>/spaces/<space>/proposals.json` | file, cached 30 s | `network`, `space` | `{network, space, fetched_at, proposals: [...]}`: the space's active proposals plus its 10 most recent, each once, newest first. Each has `id`, `title`, `type`, `choices` (`[{number, label}]`, 1-based), `start`, `end`, `state`, `scores_total`, `vote_type_supported`, `voting_open`. An unknown space gives an empty list | — | `bloom:http` |
-| `/petals/ballot/<network>/proposals/` | dir | `network` | empty: proposals are reached by exact path (below) | — | none |
-| `/petals/ballot/<network>/proposals/<id>.json` | file, cached 30 s | `proposal` = `0x` + 64 lowercase hex | `network`, `fetched_at`, `id`, `space`, `author`, `title`, `body` (first 8192 bytes, cut on a UTF-8 boundary), `truncated`, `choices`, `type`, `start`, `end`, `snapshot`, `state`, `scores`, `scores_total`, `votes`, `vote_type_supported`, `voting_open`. Unknown id is `not found` | — | `bloom:http` |
-| `/petals/ballot/<network>/accounts/` | dir | `network` | wallets (listed by Bloom) | — | none |
-| `/petals/ballot/<network>/accounts/<wallet>/` | dir | `wallet` (Bloom wallet id) | numbered accounts (listed by Bloom) | — | none |
-| `/petals/ballot/<network>/accounts/<wallet>/<n>/` | dir | `wallet`, `index` | lists `inbox.json`, `following.json`, `mandate.json`, `votes/` | — | none |
-| `…/<n>/inbox.json` | file, cached 5 s | `network`, `wallet`, `index` | `{account, fetched_at, spaces: [{space, open: [{id, title, type, vote_type_supported, closes_in_s, end, voted, our_choice}] \| error}], alerts: [closing_soon \| result \| delegate_voted], notes}` for the first 10 mandate spaces; without mandate spaces an `explanation` | — | `bloom:http`, `bloom:store`, `bloom:vfs.read` |
-| `…/<n>/following.json` | file, cached 5 s | `network`, `wallet`, `index` | `{account, fetched_at, following: [{space, delegate, proposals: [{id, title, closes_in_s, delegate_choice, suggested_write: {path, body}}] \| error, warning?}], notes, advisory}` for the first 10 `follow` entries; without entries an `explanation` | — | `bloom:http`, `bloom:store`, `bloom:vfs.read` |
-| `…/<n>/mandate.json` | writable, uncached | `network`, `wallet`, `index` | `mandate` (or `null`), `notes`, `updated_ms`, `advisory`, `body_schema`, `last_write` | `{spaces?, follow?, blocked_keywords?, require_reason?, max_votes_per_day?}` ≤ 8 KiB replaces the mandate; `{}` clears it | `bloom:store` |
-| `…/<n>/votes/` | dir | `network`, `wallet`, `index` | `new.json` plus one `<vote_id>.json` per vote of this account | — | `bloom:store` |
-| `…/<n>/votes/new.json` | writable, uncached | `network`, `wallet`, `index` | `body_schema`, `rules`, `last_write` (marker of the latest write: `at_ms`, `body_sha256`, `canonical_body_sha256`, `vote_id`, `outcome`, `code`, `message`, `record`) | `{vote_id, space, proposal, choice, reason?}` ≤ 4 KiB: checks, freezes, signs (owner approval), submits to the sequencer | `bloom:http`, `bloom:sign`, `bloom:store`, `bloom:vfs.read` |
-| `…/<n>/votes/<vote_id>.json` | file, cached 5 s | `vote_id` = `[a-z0-9-]{1,48}`, not `new` | `status`, `next`, `reason_code`, `detail`, `inferred`, `summary` (space, proposal and title, choice and label, reason, from, times), `typed_data`, `preimage`, `digest`, `verify`, `approval`, `signature_sha256`, `receipt`, `counted`, `history`, `live` (hub check, no store write). Unknown id is `not found` | — | `bloom:http`, `bloom:store` |
+1. Read after every write. A write is never a completed vote.
+2. Never fabricate or rewrite a ceremony URL, and never put one in logs or reports.
+3. Never claim a vote is counted unless the record's `status` is `counted` or `live.counted` is true.
+4. Never weaken the mandate to get a vote through. A mandate refusal is final for that body.
+5. Never vote on mainnet. It is disabled, and a write is refused (`mainnet_disabled`) before any external call.
+6. Never write under `/wallets`, and never complete or cancel a ceremony. Only the owner approves.
 
-### Finding proposals
+## 1. Discover
 
-The hub has thousands of spaces, so `spaces/` and `proposals/` do not list
-anything: name what you want. Pick a space id (the ENS-style name in the
-Snapshot URL, e.g. `aavedao.eth`, or our testnet space
-`bloom-ballot-182c.eth`), read `<network>/spaces/<space>/proposals.json`, then
-read `<network>/proposals/<id>.json` with an `id` from that list:
+| Read | Tells you |
+| --- | --- |
+| `/petals/ballot/status.json` | Petal, version, sign intent, Snapshot endpoints |
+| `$A/inbox.json` | **Start here.** Open proposals in mandate spaces, soonest end first, with `voted` and `our_choice`. Alerts: `closing_soon` (not voted, under 24 h), `result` (closed, you voted), `delegate_voted` |
+| `$A/following.json` | Open proposals a followed delegate voted on and you have not, each with `delegate_choice` and a `suggested_write` (`path` and ready `body`) |
+| `$A/mandate.json` | The owner's standing rules and `last_write` |
+
+With no mandate spaces, the inbox returns only an `explanation`. A space or
+follow entry whose hub query failed shows `error`, and the others still render.
+A `warning` on a follow entry means the mandate's `spaces` would refuse that
+space. For anything else, name what you want, because `spaces/` and `proposals/`
+list nothing: read `<network>/spaces/<space>/proposals.json`, then
+`<network>/proposals/<id>.json`.
+
+## 2. Vote
+
+Check the proposal: `vote_type_supported` and `voting_open` must be true.
+`choice` is the 1-based `number` of a `choices` entry.
 
 ```sh
-bloom vfs cat /petals/ballot/testnet/spaces/bloom-ballot-182c.eth/proposals.json
-bloom vfs cat /petals/ballot/testnet/proposals/0x5fa4f371c47a9691128eaa0bc079abed859f73b9f2e0afb453ff5a7d5b752607.json
+bloom vfs write $V/new.json --data '{"vote_id":"<id>","space":"<space>","proposal":"0x…","choice":1,"reason":"…"}'
 ```
 
-`vote_type_supported` is true only for `single-choice` and `basic` proposals,
-the types whose vote is one numbered `choice`. `voting_open` is true when the
-hub says `active` and the read time (`fetched_at`) is before `end`; it can be
-up to 30 s stale (the read cache) and does not check voting power. Times (`start`, `end`) are always the hub's own
-values. Hub failures (GraphQL errors, bad status, a response over 512 KiB for
-a listing or 256 KiB for a proposal) are `backend` errors with a short,
-sanitized message. Both reads POST only to the network's fixed hub endpoint
-(`https://testnet.hub.snapshot.org/graphql` or
-`https://hub.snapshot.org/graphql`); route values travel only as GraphQL
-variables. The only other `[[net.allow]]` entry is the testnet sequencer
-(`POST https://testnet.seq.snapshot.org/`), used by `votes/new.json`.
+`vote_id` is `[a-z0-9-]{1,48}` and not `new`. `reason` is optional, up to 500
+characters. Unknown fields are refused, and the body is at most 4 KiB. A
+`suggested_write` body is a normal body: writing it only starts the owner's
+approval.
 
-### Starting point: inbox and mandate (agents)
+## 3. Read after write
 
-Read `…/<n>/inbox.json` first. It lists, for each space in the account's
-mandate, the proposals open now (soonest end first) with `voted` /
-`our_choice` for this account, plus alerts: `closing_soon` (open, not voted,
-under 24 h left) and `result` (a closed recent proposal you voted on: the
-winning choice by scores, your choice, `our_choice_won`) and `delegate_voted`
-(open, a supported type, voted by the delegate the mandate follows in that
-space, not yet by you). A space whose hub
-query failed shows `error`; the others still render. With no mandate spaces
-the inbox only explains how to set them.
+Through the mount a write runs detached and always appears to succeed. Through
+`bloom vfs write` it returns its error. In both cases, read:
 
-`following.json` lists, for each `follow` entry of the mandate (first 10), the
-open proposals of a supported type that the delegate voted on and this
-account has not, each with `delegate_choice` and a `suggested_write`: the
-exact `votes/new.json` path and a ready body (`vote_id` `follow-<8 hex>`,
-reason `Following <delegate>`). Nothing votes automatically: writing the body
-only starts the owner's approval, and the mandate still applies to it. A
-failing entry shows `error`; the others still render. A `warning` means the
-mandate's `spaces` would refuse that space.
+1. `bloom vfs cat $V/new.json | jq .last_write` shows `body_sha256` (compare it with the sha256 of your body), `outcome`, `code`, `message`, `vote_id` and `record`.
+2. `bloom vfs cat $V/<vote_id>.json` shows `status`, `next`, `reason_code` and `detail`.
 
-`mandate.json` holds the owner's standing rules for new votes:
-`spaces` (allowed spaces; empty = any), `blocked_keywords` (refuse a proposal
-whose title or body contains one, case-insensitive), `require_reason`,
-`max_votes_per_day` (1-100, rolling 24 h over drafted votes), and `follow`
-(space → delegate address; read by `following.json` and the inbox's `delegate_voted` alert). A write replaces the whole mandate;
-`{}` clears it. Read it back after writing (`last_write`). **The mandate is
-advisory**: it is stored by the Petal and you can edit it, so it is not a
-security boundary. It stops bad drafts before the owner is asked; every vote
-still needs the owner's approval. Do not weaken it to get a vote through:
-ask the owner. In `votes/new.json` it refuses (-3, nothing bound, no
-ceremony) with `mandate_space_not_allowed` (before any hub call),
-`mandate_blocked_keyword` (names the keyword), `mandate_reason_required` or
-`mandate_daily_limit`. A vote already bound is never re-checked.
+| Result | Meaning | Do |
+| --- | --- | --- |
+| `-3 refused: <reason_code>: …` | Nothing was bound or signed | Fix the request. The same `vote_id` may be reused |
+| `-3 refused: mandate_*` | The mandate refused it, no ceremony | Tell the owner. See section 8 |
+| `-3 approval pending (<id>)` | The owner must act | Section 4 |
+| `-3 … bound to a different vote` | The `vote_id` is taken by another body | Use a new `vote_id` |
+| `-4` | Transient | Retry the identical write |
+| `0`, `status: submitted` | The sequencer accepted it | Identical write until `counted` |
+| `0`, `status: counted` | The hub shows it | Done |
 
-### Casting a vote (agents)
+## 4. Forward approval to the human
 
-`V=/petals/ballot/testnet/accounts/<wallet>/<n>/votes`
+`-3 approval pending (<id>)` is one of two ceremonies, and the route cannot tell
+which. The first signing attempt by a new package hash is a policy update, then
+each vote has an exact signing request. The record lists both owner locations in
+`approval.pending.owner_finds_ceremony_at`:
 
-1. **Choose.** Read the proposal (`<network>/proposals/<id>.json`): it must
-   have `vote_type_supported` and `voting_open` true. `choice` is the 1-based
-   `number` of a `choices` entry.
-2. **Write** `bloom vfs write $V/new.json --data '{"vote_id":"<id>","space":"<space>","proposal":"0x…","choice":N,"reason":"…"}'`.
-   Pick a fresh `vote_id` (`[a-z0-9-]{1,48}`, not `new`). `reason` is optional
-   (missing = `""`, at most 500 characters); unknown fields are refused.
-3. **Read after every write.** Through the mount a write runs detached and
-   always "succeeds"; through `bloom vfs write` it returns its error. Either
-   way, `bloom vfs cat $V/new.json` shows `last_write` (compare its
-   `body_sha256` with the sha256 of your body), and `$V/<id>.json` shows the
-   vote's `status` and `next`.
-4. **Refused** (`-3 refused: <reason_code>: …`): nothing was bound or signed.
-   Fix the request; you may reuse the same `vote_id`.
-5. **Approval pending** (`-3 approval pending (<id>)`): the first time a new
-   build signs, this is Machine's policy-update ceremony for the package hash;
-   then the exact signing ceremony. The owner opens it from
-   `/wallets/<wallet>/policy-updates/pending/<id>/approval_challenge.json` or
-   `/petal-signing-requests/<id>.json`. **Before approving the signing
-   ceremony**, run the two `verify` commands from `$V/<id>.json`: Bloom's own
-   `/tools/eip712/hash` recomputes the digest from the readable `typed_data`,
-   and `out.hex` must equal `verify.expected_out_hex` and the ceremony's exact
-   hash (`exact_ordered_hashes`, shown without `0x`). The ceremony page shows
-   only that hash (docs/known-limitations.md §1). After approval, **retry the
-   identical write promptly** (5-minute window; Signer may refuse ~90 s early).
-   A retry before approval returns the same pending id.
-6. **Identical body = resume.** The same vote (space, proposal, choice,
-   reason; whitespace and key order ignored) under the same `vote_id` resumes
-   from the current state: it never signs twice with a different timestamp
-   and never submits twice. A different body under a bound `vote_id` is
-   refused (`-3 … bound to a different vote`).
-7. **Done means the record says so.** Success (exit 0) means the handler
-   finished: `submitted` = the Snapshot sequencer accepted the vote
-   (`receipt.id` equals `digest`, which is Snapshot's vote id); `counted` = the
-   hub shows a vote with that id and choice. `live.counted` on the read checks
-   the hub without writing; one more identical write records `counted`.
-8. **Transient** (`-4`): retry the identical write. A vote that was posted
-   is checked on the hub before any re-post.
-9. **Final**: `expired` (`proposal_closed`, `timestamp_stale` — the frozen
-   timestamp must reach the sequencer within 6 days — or `approval_expired`,
-   which is `inferred` from a bare denial) and `rejected_by_snapshot` never
-   change. To vote again, write the same vote under a **new** `vote_id`: that
-   freezes a new timestamp and opens a new ceremony. Re-voting replaces your
-   earlier Snapshot vote.
+- `/wallets/<wallet>/policy-updates/pending/<id>/approval_challenge.json`
+- `/petal-signing-requests/<id>.json`
 
-Signature bytes are never readable: the signature lives only in the store's
-secrets namespace (`creds/votes/…`) between signing and submission, then is
-deleted; reads show at most `signature_sha256`.
+Tell the owner which path exists, the `<id>`, and what they are approving. The
+owner opens `ceremony_url` from that file. If you must relay the link, copy it
+unchanged to the owner only, and keep it out of logs, reports and files.
 
-## Development skill
+Keep the owner's window in mind: an approval lasts 5 minutes, and Signer has
+refused one about 90 s before expiry. A retry before approval returns the same
+pending id and opens no new ceremony.
 
-Petals are authored against the `bloom-petal-development` skill at
-`.agents/skills/bloom-petal-development/SKILL.md` (written by `petal new`).
-Load it before extending this Petal. It is part of the Petal package, so
-editing it changes the package hash; Bloom does not serve it under
-`/petals/ballot/`.
+## 5. Verify before the owner approves a signing request
 
-Route files own their parameter parsing and behaviour. `route/src` holds typed
-helpers only (`Network`, input validators, the hub GraphQL transport in
-`hub.rs`, proposal queries and projections in `proposals.rs`, EIP-712 in
-`snapshot.rs`, the advisory mandate in `mandate.rs`, the inbox in
-`inbox.rs`, the delegate-following read in `following.rs`, the vote flow in `votes/`: `flow.rs` is the pure state machine
-over the `VoteHost` trait, `host.rs` the only file that calls the Petal SDK);
-it never dispatches on route identity. Recorded hub responses
-and the golden vote vector used by the tests are in `docs/snapshot-testnet/`. Run `bash scripts/check-route-architecture.sh` and `petal check`
-before pushing.
+The ceremony shows only a hash (`docs/known-limitations.md` §1). Before approval:
+
+1. Show the owner `summary` (space, proposal title, choice label, reason) from `$V/<vote_id>.json`.
+2. Run the two commands in `verify.commands`. Bloom's own tool recomputes the digest from the readable `typed_data`.
+3. `out.hex` must equal `verify.expected_out_hex` and the ceremony's hash (`exact_ordered_hashes`, shown there without `0x`).
+
+If they differ, tell the owner not to approve.
+
+## 6. Identical retry
+
+After the owner approves, repeat the **identical** write promptly. The same
+space, proposal, choice and reason under the same `vote_id` resumes from the
+current state, ignoring whitespace and key order. It never signs with a
+different timestamp and never submits twice. The vote takes one write per stage:
+
+```text
+write -> approval pending (policy, first use of a hash only)
+write -> approval pending (signing)
+write -> submitted
+write -> counted
+```
+
+## 7. Expiry and final states
+
+`expired` (`proposal_closed`, `timestamp_stale`, or `approval_expired`, which is
+`inferred` from a bare denial) and `rejected_by_snapshot` never change. To vote
+again, write the same vote under a **new** `vote_id`. That freezes a new
+timestamp and opens a new ceremony. Re-voting replaces your earlier Snapshot
+vote, and needs the owner's approval like any vote.
+
+## 8. Done and mandate
+
+**Done.** `submitted` means the sequencer accepted the vote and `receipt.id`
+equals `digest`. `counted` means the hub shows a vote with that id and choice.
+`live.counted` checks the hub without writing, and one more identical write
+records `counted`. Report only what the record says.
+
+**Mandate.** A write replaces the whole mandate, and `{}` clears it. Fields:
+`spaces` (empty means any), `blocked_keywords`, `require_reason`,
+`max_votes_per_day` (1-100, rolling 24 h), `follow` (space to delegate address).
+It is advisory: stored by this Petal and editable by you, so it is not a
+security boundary. Every vote still needs the owner's approval. A vote already
+bound is never re-checked.
+
+`mandate_space_not_allowed`, `mandate_blocked_keyword`, `mandate_reason_required`
+and `mandate_daily_limit` are final for that body. Do not edit the mandate to
+get past them. Report the refusal and ask the owner. The one thing you may fix
+yourself is `mandate_reason_required`: a body with a reason is a new body.
+
+## 9. Route reference
+
+| Route | Kind | Read | Write | Capabilities |
+| --- | --- | --- | --- | --- |
+| `status.json` | file | Petal, version, sign intent, hub and sequencer URLs | | none |
+| `<network>/` | dir | `spaces/`, `proposals/`, `accounts/`. `network` is `testnet` or `mainnet` | | none |
+| `<network>/spaces/`, `<network>/proposals/` | dir | Empty, reached by exact path | | none |
+| `<network>/spaces/<space>/` | dir | `proposals.json`. `space` matches `[a-z0-9-]+(\.[a-z0-9-]+)+`, at most 64 bytes | | none |
+| `<network>/spaces/<space>/proposals.json` | file, cached 30 s | Active proposals plus the 10 most recent, newest first: `id`, `title`, `type`, `choices`, `start`, `end`, `state`, `scores_total`, `vote_type_supported`, `voting_open` | | `bloom:http` |
+| `<network>/proposals/<id>.json` | file, cached 30 s | One proposal, `body` capped at 8192 bytes with `truncated`. An unknown id is `not found` | | `bloom:http` |
+| `<network>/accounts/…/<n>/` | dir | `inbox.json`, `following.json`, `mandate.json`, `votes/` | | none |
+| `…/inbox.json` | file, cached 5 s | Section 1, first 10 mandate spaces | | `bloom:http`, `bloom:store`, `bloom:vfs.read` |
+| `…/following.json` | file, cached 5 s | Section 1, first 10 `follow` entries | | `bloom:http`, `bloom:store`, `bloom:vfs.read` |
+| `…/mandate.json` | writable, uncached | `mandate`, `notes`, `updated_ms`, `advisory`, `body_schema`, `last_write` | Mandate, at most 8 KiB | `bloom:store` |
+| `…/votes/` | dir | `new.json` plus one `<vote_id>.json` per vote | | `bloom:store` |
+| `…/votes/new.json` | writable, uncached | `body_schema`, `rules`, `last_write` | Section 2 | `bloom:http`, `bloom:sign`, `bloom:store`, `bloom:vfs.read` |
+| `…/votes/<vote_id>.json` | file, cached 5 s | `status`, `next`, `reason_code`, `detail`, `inferred`, `summary`, `typed_data`, `preimage`, `digest`, `verify`, `approval`, `signature_sha256`, `receipt`, `counted`, `history`, `live` | | `bloom:http`, `bloom:store` |
+
+Hub failures are `backend` errors with a short, sanitized message. `voting_open`
+can be 30 s stale and does not check voting power. Signature bytes are never
+readable: reads show at most `signature_sha256`.
+
+## Developing this Petal
+
+Load `.agents/skills/bloom-petal-development/SKILL.md` first. Route files own
+their parsing and behaviour. `route/src` holds typed helpers and never
+dispatches on route identity. In `route/src/votes/`, `flow.rs` is the pure state
+machine over the `VoteHost` trait and `host.rs` is the only file that calls the
+Petal SDK. Design: `docs/plan-votes.md`, `docs/plan-mandate-inbox.md`. Run
+`bash scripts/check-route-architecture.sh` and `petal check` before pushing.
