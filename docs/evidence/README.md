@@ -16,9 +16,7 @@ A screenshot of the Snapshot site, not a JSON output.
 
 | File | What it proves |
 | --- | --- |
-| `snapshot-vote.png` | The Bloom account `0x0c056ae661D3d3f87919eCb9733527509D392751` voted For on "Agent rehearsal: adopt monthly community calls" in `bloom-ballot-182c.eth` on testnet.snapshot.box. The governance agent cast it during the agent rehearsal. Digest `0x73f0f36db95446efd64f56a879d5ae8356f272795c901fc2dfff292b8c5845c1`. |
-
-![The Bloom account's vote counted on Snapshot testnet](snapshot-vote.png)
+| ![The Bloom account's vote counted on Snapshot testnet](snapshot-vote.png) | The Bloom account `0x0c056ae661D3d3f87919eCb9733527509D392751` voted For on "Agent rehearsal: adopt monthly community calls" in `bloom-ballot-182c.eth` on testnet.snapshot.box. The governance agent cast it during the agent rehearsal. Digest `0x73f0f36db95446efd64f56a879d5ae8356f272795c901fc2dfff292b8c5845c1`. |
 
 The image shows the space's display name ("bloom-ballot test"), the voter as
 `0x0c05…2751`, the choice, the reason and the timeline. The proposal title, the
