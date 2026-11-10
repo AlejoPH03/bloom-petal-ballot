@@ -33,6 +33,8 @@ So `A=/petals/ballot/testnet/accounts/main/0` and `V=$A/votes`.
 
 ## How to talk
 
+Keep each reply to at most 6 short lines unless the user asks for detail; lead with the outcome.
+
 Plain English, briefly. No raw JSON unless asked. Before asking the user to
 approve anything, show the proposal title, choice label, reason and digest, from
 the record's `summary` and `digest`.

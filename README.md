@@ -246,6 +246,7 @@ bash scripts/leak-check.sh
 - **132 host tests**, including golden vectors for the EIP-712 digest and the sequencer envelope (`docs/snapshot-testnet/golden/`, built offline), the state machine against fakes (`route/src/votes/flow_tests.rs`, 37 tests), and crash injection at every store write (`crash_at_any_store_write_converges`).
 - **Live acceptance, 2026-11-07:** vote `accept-1` reached `counted`, with refusals and a conflict checked ([accept-1](docs/evidence/accept-1.json), [closed-1](docs/evidence/closed-1.json), [marker](docs/evidence/votes-new-marker.json)).
 - **Dress rehearsal, 2026-11-09:** followed a delegate through both ceremonies to `counted` ([vote](docs/evidence/rehearsal-follow-vote.json)), and a blocked proposal was refused ([refusal](docs/evidence/rehearsal-treasury-refused.json)).
+- **Agent rehearsal, 2026-11-09:** the governance agent's For vote from the Bloom account shows on testnet.snapshot.box ([screenshot](docs/evidence/snapshot-vote.png)).
 
 Runbook: [`scripts/rehearse.md`](scripts/rehearse.md). Index:
 [`docs/evidence/README.md`](docs/evidence/README.md).
