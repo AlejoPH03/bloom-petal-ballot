@@ -8,7 +8,8 @@ per-account inbox, advisory mandate and delegate following. Mainnet votes are
 refused (`mainnet_disabled`).
 
 Documentation: rewritten README and agent operating contract (`AGENTS.md`);
-live evidence in `docs/evidence/`; agent-driven demo script
-(`docs/demo-script.md`) and agent instructions (`docs/agent-setup/CLAUDE.md`);
+live evidence in `docs/evidence/`; demo video
+(https://youtu.be/wdwTPIZ1NGw?si=SVlnOsPbbNNJngxj) and agent instructions
+(`docs/agent-setup/CLAUDE.md`);
 draft upstream issue for readable Petal signing review
 (`docs/upstream-issue-draft.md`).

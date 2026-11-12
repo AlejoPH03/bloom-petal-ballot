@@ -10,6 +10,23 @@ passes, with three entries added to `scripts/leak-allowlist.txt`: the 132-digit
 `step1-hello-sign.json`. Those are public (66 bytes, `0x1901` prefix), and
 `keccak256` of each equals the file's digest.
 
+## Demo vote, 2026-11-11
+
+The vote in the [demo video](https://youtu.be/wdwTPIZ1NGw?si=SVlnOsPbbNNJngxj),
+on "Lower protocol fee to 0.2%" in `bloom-ballot-182c.eth` on Snapshot testnet.
+
+| File | What it proves |
+| --- | --- |
+| ![The demo's policy-update ceremony for wallet main](policy-ceremony.png) | The demo's policy-update ceremony for wallet `main`, which allowed the package hash of the v0.1.0 build installed for the demo, `311b2e88c4196ca79a32c53b8c83047e80df39f4123dc7c45dce65dea747bbf1` (shown on the page as `311b2e88…47bbf1`). That build was a directory install, so its hash differs from the release archive's `package_hash` in `petal-release.json` ([known-limitations §10](../known-limitations.md)). |
+
+The image is cropped to the page header and the "Allow app (petal)" row. The
+browser address bar, the technical details and the signed manifest are not in
+the frame.
+
+The signing ceremony's digest, recorded as text:
+`0x2f93fa716ab03eb953e536bc12acad11f957f3a5a27c4908a5ee8e20f41e6d3f`. It equals Snapshot's vote id, confirmed on the hub. No screenshot of the
+signing ceremony was saved.
+
 ## Agent rehearsal, 2026-11-09
 
 A screenshot of the Snapshot site, not a JSON output.
@@ -53,7 +70,7 @@ These come from an earlier build. The `hello-sign.json` route no longer exists.
 
 ## What these files do not contain
 
-- **The output of Bloom's `/tools/eip712/hash` and the hash shown on the ceremony page.** Neither was saved. Reproduce the first with the commands in the README's "Verify without trusting Ballot".
+- **The output of Bloom's `/tools/eip712/hash` and the hash shown on a signing ceremony page.** Neither was saved as a file or screenshot. For the demo vote, the digest is recorded as text above. Reproduce the first with the commands in the README's "Verify without trusting Ballot".
 - **The passkey ceremonies themselves.** They appear only indirectly, through `history` and the resulting signature fingerprint.
 
 Separate checks on 2026-11-09 for the rehearsal vote: the hub returned the same

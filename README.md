@@ -3,6 +3,8 @@
 A Bloom Petal that lets an agent read Snapshot proposals and draft gasless
 votes that Bloom signs only after the wallet owner approves each one.
 
+Demo video: https://youtu.be/wdwTPIZ1NGw?si=SVlnOsPbbNNJngxj
+
 **Status:** `v0.1.0-rc1`. Reads work on testnet and mainnet. Votes work on
 Snapshot testnet only and passed a live acceptance and a dress rehearsal
 ([evidence](docs/evidence/README.md)). Mainnet voting ships off by default; it’s a one-line, owner-approved change.
@@ -37,8 +39,8 @@ The Petal's interface is its files. An agent lists, reads and writes paths under
 `/petals/ballot/AGENTS.md`. There is no separate API. The commands elsewhere in
 this README are what an agent runs, or what a developer uses to test.
 [`docs/agent-setup/CLAUDE.md`](docs/agent-setup/CLAUDE.md) sets up a Claude Code
-session as a governance agent. An example, matching the
-[demo](docs/demo-script.md) (illustrative, not a transcript):
+session as a governance agent. An example, following the
+[demo video](https://youtu.be/wdwTPIZ1NGw?si=SVlnOsPbbNNJngxj) (illustrative, not a transcript):
 
 > **You:** What needs my attention in governance?
 >
@@ -46,11 +48,11 @@ session as a governance agent. An example, matching the
 >
 > **You:** Vote with my delegate on the fee proposal: For, using the suggested reason.
 >
-> **Agent:** Drafted: "Lower protocol fee to 0.2%", For, reason "Following 0x042a…a596", digest `0x…`. Bloom first needs you to add this build to the wallet's policy. The ceremony link is on your clipboard. Please open it in your browser.
+> **Agent:** Drafted: "Lower protocol fee to 0.2%", For, reason "Following 0x042a…a596", digest `0x2f93fa716ab03eb953e536bc12acad11f957f3a5a27c4908a5ee8e20f41e6d3f`. Bloom first needs you to add this build to the wallet's policy. The ceremony link is on your clipboard. Please open it in your browser.
 >
 > **You:** Approved.
 >
-> **Agent:** Now the signing request for this exact vote. Bloom's own tool recomputed the digest and it matches: `0x…`. Compare it with the hash on the ceremony page. The link is on your clipboard.
+> **Agent:** Now the signing request for this exact vote. Bloom's own tool recomputed the digest and it matches: `0x2f93fa716ab03eb953e536bc12acad11f957f3a5a27c4908a5ee8e20f41e6d3f`. Compare it with the hash on the ceremony page. The link is on your clipboard.
 >
 > **You:** Approved.
 >
@@ -247,6 +249,7 @@ bash scripts/leak-check.sh
 - **Live acceptance, 2026-11-07:** vote `accept-1` reached `counted`, with refusals and a conflict checked ([accept-1](docs/evidence/accept-1.json), [closed-1](docs/evidence/closed-1.json), [marker](docs/evidence/votes-new-marker.json)).
 - **Dress rehearsal, 2026-11-09:** followed a delegate through both ceremonies to `counted` ([vote](docs/evidence/rehearsal-follow-vote.json)), and a blocked proposal was refused ([refusal](docs/evidence/rehearsal-treasury-refused.json)).
 - **Agent rehearsal, 2026-11-09:** the governance agent's For vote from the Bloom account shows on testnet.snapshot.box ([screenshot](docs/evidence/snapshot-vote.png)).
+- **Demo vote, 2026-11-11:** the recorded demo voted on "Lower protocol fee to 0.2%" after a policy-update ceremony ([screenshot](docs/evidence/policy-ceremony.png)) and a signing ceremony. Digest `0x2f93fa716ab03eb953e536bc12acad11f957f3a5a27c4908a5ee8e20f41e6d3f`, equal to Snapshot's vote id on the hub.
 
 Runbook: [`scripts/rehearse.md`](scripts/rehearse.md). Index:
 [`docs/evidence/README.md`](docs/evidence/README.md).
@@ -270,13 +273,18 @@ also needs installer provenance for that exact package hash and the owner's
 approval. If a different build is installed, run `bloom petals uninstall ballot`
 first. Never use `--force`.
 
-**Release archive (for reviewers):**
+**Release archive (for reviewers):** from the
+[v0.1.0 release](https://github.com/AlejoPH03/bloom-petal-ballot/releases/tag/v0.1.0):
 
 ```sh
-gh release download v0.1.0-rc1 -R AlejoPH03/bloom-petal-ballot
-sha256sum -c ballot-v0.1.0-rc1.petal.tar.gz.sha256
-bloom petals install ./ballot-v0.1.0-rc1.petal.tar.gz
+gh release download v0.1.0 -R AlejoPH03/bloom-petal-ballot
+sha256sum -c SHA256SUMS
+bloom petals install ./ballot-v0.1.0.petal.tar.gz
 ```
+
+The release also carries `petal-release.json`, with the archive's `sha256` and
+its `package_hash`. That `package_hash` is the hash an owner's catalog would pin
+for this archive ([§10](docs/known-limitations.md)).
 
 **Local checkout:**
 
@@ -291,7 +299,7 @@ git-ignored files, so remove what should not ship.
 **GitHub source:**
 
 ```sh
-bloom petals install https://github.com/AlejoPH03/bloom-petal-ballot --ref v0.1.0-rc1
+bloom petals install https://github.com/AlejoPH03/bloom-petal-ballot --ref v0.1.0
 ```
 
 This is **refused at our Bloom pin**: `unsupported GitHub owner AlejoPH03;
@@ -307,7 +315,7 @@ enrolls and installs the **same directory**. The command exists only in the
 `triad-dev-harness` build of `bloom`:
 
 ```sh
-mkdir ballot-pkg && tar -xzf ballot-v0.1.0-rc1.petal.tar.gz -C ballot-pkg
+mkdir ballot-pkg && tar -xzf ballot-v0.1.0.petal.tar.gz -C ballot-pkg
 "$BLOOM_BIN" init triad-enroll-developer-petal-provenance "$BLOOM_TRIAD_DEVELOPER_ROOT/config" ballot-pkg
 # restart the triad, then:
 bloom petals uninstall ballot   # only if another build is installed
