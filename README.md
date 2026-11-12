@@ -5,7 +5,7 @@ votes that Bloom signs only after the wallet owner approves each one.
 
 Demo video: https://youtu.be/wdwTPIZ1NGw?si=SVlnOsPbbNNJngxj
 
-**Status:** `v0.1.0-rc1`. Reads work on testnet and mainnet. Votes work on
+**Status:** `v0.1.0` ([release](https://github.com/AlejoPH03/bloom-petal-ballot/releases/tag/v0.1.0)). Reads work on testnet and mainnet. Votes work on
 Snapshot testnet only and passed a live acceptance and a dress rehearsal
 ([evidence](docs/evidence/README.md)). Mainnet voting ships off by default; it’s a one-line, owner-approved change.
 
